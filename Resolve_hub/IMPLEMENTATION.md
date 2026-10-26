@@ -1,4 +1,4 @@
-# IMPLEMENTATION.md — CampusResolve
+# IMPLEMENTATION.md — Resolve_Hub
 
 Implement in this order. Keep each phase runnable and tested.
 

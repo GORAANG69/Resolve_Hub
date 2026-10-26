@@ -4,10 +4,19 @@ from django.db import models
 from django.utils import timezone
 
 
-class Role(models.TextChoices):
+class ComplainantType(models.TextChoices):
     STUDENT = "STUDENT", "Student"
+    FACULTY = "FACULTY", "Faculty"
+    PUBLIC = "PUBLIC", "Public / Citizen"
+
+
+class Role(models.TextChoices):
+    STUDENT = "STUDENT", "Complainant"
+    SECTION_HEAD = "SECTION_HEAD", "Section Head"
+    BUREAU_HEAD = "BUREAU_HEAD", "Bureau Head"
+    MEMBER_SECRETARY = "MEMBER_SECRETARY", "Member Secretary"
     DIRECTOR = "DIRECTOR", "Director"
-    HOD = "HOD", "Head of Department"
+    HOD = "HOD", "Head of Department (Legacy)"
     ADMIN = "ADMIN", "Admin"
 
 
@@ -29,15 +38,21 @@ class User(AbstractUser):
     """
     Custom user model (required from the start per CLAUDE.md).
 
-    Public registration must only ever create STUDENT users - role is never
-    settable from a public-facing form. Director/Admin accounts are
-    provisioned administratively (Django admin or a management command).
+    Public registration must only ever create Complainant-type users (STUDENT role) -
+    role is never settable from a public-facing form. Officer accounts
+    (SECTION_HEAD, BUREAU_HEAD, MEMBER_SECRETARY, DIRECTOR, ADMIN) are
+    provisioned administratively.
     """
 
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=10, choices=Role.choices, default=Role.STUDENT)
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.STUDENT)
+    complainant_type = models.CharField(
+        max_length=20,
+        choices=ComplainantType.choices,
+        default=ComplainantType.STUDENT,
+    )
 
-    # Student profile fields (README "Core data model > User")
+    # Complainant profile fields
     roll_number = models.CharField(max_length=32, unique=True, null=True, blank=True)
     full_name = models.CharField(max_length=150, blank=True)
     mobile_number = models.CharField(max_length=16, validators=[mobile_validator], blank=True)
@@ -46,9 +61,23 @@ class User(AbstractUser):
     semester = models.PositiveSmallIntegerField(null=True, blank=True)
     phone_verified = models.BooleanField(default=False)
 
-    # Only meaningful for role=HOD - which department this HOD heads.
-    # Every Director-forwarded complaint routes to the HOD whose
-    # `department` matches the complaint's `assigned_department`.
+    # Officer assignment scoping (section/bureau)
+    cell = models.ForeignKey(
+        "institutions.Cell",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="officers",
+    )
+    bureau = models.ForeignKey(
+        "institutions.Bureau",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="officers",
+    )
+
+    # Legacy field
     department = models.CharField(
         max_length=20, choices=Department.choices, null=True, blank=True
     )
@@ -77,8 +106,34 @@ class User(AbstractUser):
         return self.role == Role.STUDENT
 
     @property
+    def is_complainant(self):
+        return self.role == Role.STUDENT
+
+    @property
+    def is_section_head(self):
+        return self.role == Role.SECTION_HEAD
+
+    @property
+    def is_bureau_head(self):
+        return self.role == Role.BUREAU_HEAD
+
+    @property
+    def is_member_secretary(self):
+        return self.role == Role.MEMBER_SECRETARY
+
+    @property
     def is_director(self):
         return self.role == Role.DIRECTOR
+
+    @property
+    def is_officer(self):
+        return self.role in (
+            Role.SECTION_HEAD,
+            Role.BUREAU_HEAD,
+            Role.MEMBER_SECRETARY,
+            Role.DIRECTOR,
+            Role.HOD,
+        )
 
     @property
     def is_hod(self):
@@ -96,7 +151,7 @@ class OTPPurpose(models.TextChoices):
     vice versa) even within its validity window.
     """
 
-    LOGIN = "LOGIN", "Student login"
+    LOGIN = "LOGIN", "Login verification"
     REGISTRATION = "REGISTRATION", "Account registration"
 
 
@@ -107,14 +162,8 @@ class OTPChannel(models.TextChoices):
 
 class LoginOTP(models.Model):
     """
-    One-time verification code for Students - used both for login (Phase 13)
-    and to verify a new account at registration. Delivered by email or SMS
-    (`channel`); both go through the identical verification path. Only
-    students go through this; Director/HOD/Admin log in directly.
-
-    Safe-storage rule: only a salted hash of the code is ever persisted -
-    never the plaintext code (CLAUDE.md: "never log OTP values" extends to
-    "never store them in the clear" here).
+    One-time verification code for Complainants - used both for login
+    and to verify a new account at registration.
     """
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_otps")

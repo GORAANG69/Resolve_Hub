@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Officer Dashboard - Resolve_Hub{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3>AICTE Officer Dashboard</h3>
+    <p class="text-muted small mb-0">
+      Role: <strong>{{ officer_role }}</strong>
+      {% if officer_cell %} | Cell: <strong>{{ officer_cell }}</strong>{% endif %}
+      {% if officer_bureau %} | Bureau: <strong>{{ officer_bureau }}</strong>{% endif %}
+      <span class="ms-2 text-danger">(Complainant identity strictly masked)</span>
+    </p>
+  </div>
+</div>
+
+<div class="table-responsive">
+<table class="table table-hover bg-white shadow-sm rounded">
+  <thead class="table-light">
+    <tr>
+      <th>Code</th>
+      <th>Institution</th>
+      <th>Cell</th>
+      <th>Subject</th>
+      <th>Priority</th>
+      <th>Status / Stage</th>
+      <th>Escalation</th>
+      <th>Created</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for c in complaints %}
+    <tr>
+      <td><a href="{% url 'officer_portal:complaint_detail' c.id %}" class="fw-bold">{{ c.complaint_code }}</a></td>
+      <td>{{ c.institution_name }}</td>
+      <td>{{ c.cell }}</td>
+      <td>{{ c.subject|truncatechars:40 }}</td>
+      <td>
+        {% if c.priority == "CRITICAL" %}<span class="badge bg-danger">CRITICAL</span>
+        {% elif c.priority == "HIGH" %}<span class="badge bg-warning text-dark">HIGH</span>
+        {% elif c.priority == "MEDIUM" %}<span class="badge bg-info text-dark">MEDIUM</span>
+        {% else %}<span class="badge bg-secondary">LOW</span>{% endif %}
+      </td>
+      <td>
+        <span class="badge bg-secondary">{{ c.status }}</span>
+        <span class="badge bg-light text-dark border">{{ c.lifecycle_stage }}</span>
+        {% if c.is_sla_breached %}<span class="badge bg-danger">SLA BREACH</span>{% endif %}
+      </td>
+      <td>
+        {% if c.escalation_level > 0 %}
+          <span class="badge bg-danger">L{{ c.escalation_level }}</span>
+        {% else %}
+          <span class="text-muted small">Normal</span>
+        {% endif %}
+      </td>
+      <td class="small">{{ c.created_at|date:"d M Y" }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="8" class="text-muted text-center py-4">No complaints assigned to your jurisdiction.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

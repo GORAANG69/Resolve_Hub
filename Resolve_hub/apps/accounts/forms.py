@@ -10,14 +10,14 @@ from django.utils import timezone
 
 from apps.complaints.widgets import bootstrapify
 
-from .models import Role, User
+from .models import ComplainantType, Role, User
 
 
 def _reclaimable_unverified(**lookup):
     """
     An account that was registered but never OTP-verified is a placeholder,
     not a real account. After REGISTRATION_UNVERIFIED_TTL_HOURS it stops
-    blocking that email/roll number so a genuine student isn't locked out
+    blocking that email/roll number so a genuine user isn't locked out
     forever by someone else's abandoned (or malicious) signup attempt.
 
     Returns the reclaimable User, or None.
@@ -28,23 +28,31 @@ def _reclaimable_unverified(**lookup):
 
 class StudentRegistrationForm(forms.ModelForm):
     """
-    Public registration form. Deliberately excludes `role`, `is_staff`,
-    `is_superuser`, and any permission field - registration ALWAYS creates a
-    STUDENT (CLAUDE.md rule #2 / Phase 2 acceptance: self-promotion impossible).
+    Public registration form for Complainants (Students, Faculty, Public).
+    Deliberately excludes officer roles, `is_staff`, `is_superuser`, and
+    any permission field - registration ALWAYS creates a STUDENT/Complainant role.
 
-    save() creates the user with is_active=False. The account only becomes
-    usable once the emailed/texted OTP is verified (see accounts.views).
-    Django's ModelBackend refuses to authenticate is_active=False users, so
-    an unverified signup cannot log in even if the password is correct -
-    the verification gate is enforced by Django itself, not just our views.
+    Roll number is strictly required for Students, but optional for Faculty/Public.
+    Requires DPDP consent checkbox to proceed.
     """
 
+    complainant_type = forms.ChoiceField(
+        choices=ComplainantType.choices,
+        initial=ComplainantType.STUDENT,
+        label="I am registering as",
+    )
     password1 = forms.CharField(label="Password", widget=forms.PasswordInput, min_length=8)
     password2 = forms.CharField(label="Confirm password", widget=forms.PasswordInput, min_length=8)
+    dpdp_consent = forms.BooleanField(
+        required=True,
+        initial=True,
+        label="I consent to the collection and processing of my details for grievance redressal under DPDP Act.",
+    )
 
     class Meta:
         model = User
         fields = [
+            "complainant_type",
             "full_name",
             "roll_number",
             "email",
@@ -56,6 +64,8 @@ class StudentRegistrationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Roll number optional at field level; enforced in clean() for students
+        self.fields["roll_number"].required = False
         bootstrapify(self)
 
     def clean_email(self):
@@ -72,22 +82,20 @@ class StudentRegistrationForm(forms.ModelForm):
         return email
 
     def clean_roll_number(self):
-        roll_number = self.cleaned_data["roll_number"].strip()
-        existing = User.objects.filter(roll_number=roll_number).first()
-        if existing:
-            if existing.is_active:
-                raise ValidationError("An account with this roll number already exists.")
-            if not _reclaimable_unverified(roll_number=roll_number):
-                raise ValidationError(
-                    "This roll number already has a registration awaiting verification. "
-                    "Check your inbox for the code, or try again later."
-                )
-        return roll_number
+        roll_number = (self.cleaned_data.get("roll_number") or "").strip()
+        if roll_number:
+            existing = User.objects.filter(roll_number=roll_number).first()
+            if existing:
+                if existing.is_active:
+                    raise ValidationError("An account with this roll number already exists.")
+                if not _reclaimable_unverified(roll_number=roll_number):
+                    raise ValidationError(
+                        "This roll number already has a registration awaiting verification. "
+                        "Check your inbox for the code, or try again later."
+                    )
+        return roll_number or None
 
     def clean_password1(self):
-        # Run Django's configured AUTH_PASSWORD_VALIDATORS (length, common
-        # passwords, all-numeric, similarity to other fields) rather than
-        # relying on min_length alone.
         password = self.cleaned_data["password1"]
         validate_password(password)
         return password
@@ -97,23 +105,29 @@ class StudentRegistrationForm(forms.ModelForm):
         p1, p2 = cleaned.get("password1"), cleaned.get("password2")
         if p1 and p2 and p1 != p2:
             self.add_error("password2", "Passwords do not match.")
+
+        ctype = cleaned.get("complainant_type")
+        roll = cleaned.get("roll_number")
+        if ctype == ComplainantType.STUDENT and not roll:
+            self.add_error("roll_number", "Roll number is required for student registration.")
+
         return cleaned
 
     def save(self, commit=True):
-        # Clear out any stale unverified placeholder occupying this email or
-        # roll number - clean_* above already confirmed it's reclaimable.
-        User.objects.filter(is_active=False).filter(
-            Q(email=self.cleaned_data["email"]) | Q(roll_number=self.cleaned_data["roll_number"])
-        ).delete()
+        email = self.cleaned_data["email"]
+        roll_number = self.cleaned_data.get("roll_number")
+
+        delete_filter = Q(email=email)
+        if roll_number:
+            delete_filter |= Q(roll_number=roll_number)
+
+        User.objects.filter(is_active=False).filter(delete_filter).delete()
 
         user = super().save(commit=False)
-        # Role is hard-coded server-side; never read from form input.
         user.role = Role.STUDENT
         user.username = user.email
         user.is_staff = False
         user.is_superuser = False
-        # Not usable until the OTP is verified. Django's ModelBackend blocks
-        # login for is_active=False, so this is the actual security gate.
         user.is_active = False
         user.set_password(self.cleaned_data["password1"])
         if commit:
@@ -121,45 +135,36 @@ class StudentRegistrationForm(forms.ModelForm):
         return user
 
 
-class EmailAuthenticationForm(AuthenticationForm):
-    """
-    Unverified accounts (is_active=False) are rejected here automatically:
-    Django's ModelBackend.authenticate() calls user_can_authenticate() and
-    returns None for inactive users, so the form reports the standard
-    "please enter a correct email and password" error.
+# Alias for clarity
+ComplainantRegistrationForm = StudentRegistrationForm
 
-    That generic message is deliberate - distinguishing "wrong password"
-    from "account exists but unverified" would leak which emails are
-    registered. The registration page handles the recovery path instead
-    (re-registering an unverified email re-sends a fresh code).
+
+class EmailLoginForm(AuthenticationForm):
+    """
+    Standard Django auth form, but label the username field 'Email' to match
+    the custom User model's USERNAME_FIELD.
     """
 
-    username = forms.EmailField(label="Email")
+    username = forms.EmailField(label="Email", max_length=254)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["username"].widget.attrs.update(
+            {"autofocus": True, "placeholder": "you@example.com"}
+        )
         bootstrapify(self)
 
 
 class OTPVerifyForm(forms.Form):
-    code = forms.CharField(
-        label="Verification code",
-        widget=forms.TextInput(
-            attrs={"inputmode": "numeric", "autocomplete": "one-time-code", "autofocus": True}
-        ),
-    )
+    """
+    Verifies the numeric code texted/emailed to the user.
+    """
+
+    code = forms.CharField(max_length=8, min_length=4, label="Verification code")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        length = settings.OTP_LENGTH
-        self.fields["code"].min_length = length
-        self.fields["code"].max_length = length
-        self.fields["code"].label = f"{length}-digit code"
-        self.fields["code"].widget.attrs["maxlength"] = length
         bootstrapify(self)
 
     def clean_code(self):
-        code = self.cleaned_data["code"].strip()
-        if not code.isdigit():
-            raise ValidationError(f"Enter the {settings.OTP_LENGTH}-digit numeric code.")
-        return code
+        return self.cleaned_data["code"].strip()

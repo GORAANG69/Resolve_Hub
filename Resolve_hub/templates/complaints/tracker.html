@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Track Grievance - Resolve_Hub{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h4 class="card-title mb-2">Track Grievance Status</h4>
+        <p class="text-muted small mb-4">
+          Enter your AICTE grievance case ID and registered contact (email or mobile) to view live progress.
+        </p>
+
+        <form method="post">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Case ID / Reference Number</label>
+            <input type="text" name="case_id" class="form-control" placeholder="e.g. RH-2026-A1B2C3" required autofocus>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Registered Email or Mobile Number</label>
+            <input type="text" name="contact" class="form-control" placeholder="Email or Mobile provided when filing" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Check Status</button>
+        </form>
+      </div>
+    </div>
+
+    {% if error_message %}
+      <div class="alert alert-danger shadow-sm">
+        {{ error_message }}
+      </div>
+    {% endif %}
+
+    {% if result %}
+      <div class="card shadow-sm border-success">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+          <span class="fw-bold">Grievance Status Record</span>
+          <span class="badge bg-light text-dark">{{ result.case_id }}</span>
+        </div>
+        <div class="card-body">
+          <div class="row mb-3">
+            <div class="col-sm-6">
+              <small class="text-muted d-block">Institution</small>
+              <strong>{{ result.institution_name }}</strong>
+            </div>
+            <div class="col-sm-6">
+              <small class="text-muted d-block">Assigned AICTE Cell</small>
+              <strong>{{ result.cell_name }}</strong>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-sm-6">
+              <small class="text-muted d-block">Current Status</small>
+              <span class="badge bg-primary fs-6">{{ result.status }}</span>
+            </div>
+            <div class="col-sm-6">
+              <small class="text-muted d-block">Lifecycle Stage</small>
+              <span class="badge bg-secondary fs-6">{{ result.lifecycle_stage }}</span>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <small class="text-muted d-block">Last Updated</small>
+            <span>{{ result.last_updated|date:"d M Y H:i" }}</span>
+          </div>
+
+          <div class="mb-0">
+            <small class="text-muted d-block">Public Remarks from Redressal Authority</small>
+            <div class="p-3 bg-light rounded mt-1 border">
+              {{ result.public_remark }}
+            </div>
+          </div>
+        </div>
+        <div class="card-footer bg-light text-muted small text-center">
+          Privacy Safeguard: Complainant identity, evidence attachments, and internal administrative notes are protected under DPDP Act and not publicly displayed.
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

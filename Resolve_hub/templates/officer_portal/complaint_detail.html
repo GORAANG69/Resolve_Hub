@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Case {{ complaint.complaint_code }} - Resolve_Hub{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-md-8">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <h4 class="mb-1">{{ complaint.subject }}</h4>
+            <div class="text-muted small">
+              Case Reference: <strong>{{ complaint.complaint_code }}</strong> &bull;
+              Channel: <strong>{{ complaint.source_channel }}</strong> &bull;
+              Created: <strong>{{ complaint.created_at|date:"d M Y H:i" }}</strong>
+            </div>
+          </div>
+          <div>
+            <span class="badge bg-primary fs-6">{{ complaint.status }}</span>
+            <span class="badge bg-light text-dark border">{{ complaint.lifecycle_stage }}</span>
+          </div>
+        </div>
+
+        <hr>
+
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <small class="text-muted d-block">Institution</small>
+            <strong>{{ complaint.institution_name }}</strong>
+            {% if complaint.institution_aicte_id != "-" %}
+              <span class="badge bg-secondary ms-1">{{ complaint.institution_aicte_id }}</span>
+            {% endif %}
+            {% if complaint.institution_risk %}
+              <div class="mt-1">
+                <span class="badge bg-{% if complaint.institution_risk.band == 'CRITICAL' %}danger{% elif complaint.institution_risk.band == 'HIGH' %}warning text-dark{% else %}info text-dark{% endif %}">
+                  Risk: {{ complaint.institution_risk.band }} ({{ complaint.institution_risk.score }})
+                </span>
+              </div>
+            {% endif %}
+          </div>
+          <div class="col-md-3">
+            <small class="text-muted d-block">Assigned Cell</small>
+            <strong>{{ complaint.cell }}</strong>
+          </div>
+          <div class="col-md-3">
+            <small class="text-muted d-block">Priority</small>
+            {% if complaint.priority == "CRITICAL" %}<span class="badge bg-danger">CRITICAL</span>
+            {% elif complaint.priority == "HIGH" %}<span class="badge bg-warning text-dark">HIGH</span>
+            {% elif complaint.priority == "MEDIUM" %}<span class="badge bg-info text-dark">MEDIUM</span>
+            {% else %}<span class="badge bg-secondary">LOW</span>{% endif %}
+          </div>
+        </div>
+
+        {% if complaint.is_court_rti %}
+          <div class="alert alert-warning py-2 mb-3">
+            <strong>Court / RTI Matter:</strong> Reference {{ complaint.court_rti_reference|default:"None" }}
+          </div>
+        {% endif %}
+
+        {% if complaint.duplicate_of %}
+          <div class="alert alert-info py-2 mb-3">
+            <strong>Duplicate Linked:</strong> Scoped to earlier case {{ complaint.duplicate_of }}
+          </div>
+        {% endif %}
+
+        <div class="mb-3">
+          <h6 class="text-muted">Description</h6>
+          <div class="p-3 bg-light rounded" style="white-space: pre-wrap;">{{ complaint.description }}</div>
+        </div>
+
+        {% if complaint.attachments %}
+          <div class="mb-3">
+            <h6 class="text-muted">Attachments</h6>
+            <ul class="list-unstyled">
+              {% for a in complaint.attachments %}
+                <li>&bull; <a href="{% url 'complaints:attachment_download' a.id %}">{{ a.original_filename }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <div class="alert alert-light border small text-muted">
+          <em>Privacy Protection: Complainant identity (name, email, mobile, roll number) is strictly masked for officers under AICTE privacy guidelines.</em>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status History -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5>Lifecycle &amp; Status History</h5>
+        <ul class="list-group list-group-flush">
+          {% for h in complaint.status_history %}
+            <li class="list-group-item px-0">
+              <span class="badge bg-secondary">{{ h.new_status }}</span>
+              <span class="text-muted small ms-2">{{ h.created_at|date:"d M Y H:i" }} by {{ h.changed_by }}</span>
+              {% if h.remark %}<p class="mb-0 mt-1 small">{{ h.remark }}</p>{% endif %}
+            </li>
+          {% empty %}
+            <li class="list-group-item px-0 text-muted">No history recorded.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <!-- Actions Panel -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white"><strong>Update Status</strong></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          {{ status_form.as_p }}
+          <button class="btn btn-primary w-100" type="submit" name="update_status" value="1">Submit Status Update</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Triage Override -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white"><strong>Officer Triage Override</strong></div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          {{ override_form.as_p }}
+          <button class="btn btn-outline-warning text-dark w-100" type="submit" name="override_triage" value="1">Override Cell / Priority</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- SLA Info -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white"><strong>SLA &amp; Escalation</strong></div>
+      <div class="card-body">
+        <p class="mb-1">Due At: <strong>{{ complaint.sla_due_at|date:"d M Y H:i"|default:"Not computed" }}</strong></p>
+        <p class="mb-1">Escalation Level: <strong>L{{ complaint.escalation_level }}</strong></p>
+        {% if complaint.is_sla_breached %}
+          <div class="badge bg-danger">SLA Breached</div>
+        {% else %}
+          <div class="badge bg-success">Within SLA</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}AICTE Grievance Command Centre - Resolve_Hub{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2>AICTE Integrated Command Centre</h2>
+    <p class="text-muted small mb-0">
+      Monitoring &amp; Tracking Institution Complaints Across Bureaus/Cells &bull; SIH26264
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'command_centre:risk_leaderboard' %}" class="btn btn-outline-danger">Institutional Risk Radar</a>
+    <a href="{% url 'command_centre:export_csv' %}?{{ request.GET.urlencode }}" class="btn btn-outline-success">Export Filtered CSV</a>
+  </div>
+</div>
+
+<!-- KPI Metric Cards -->
+<div class="row g-2 mb-4">
+  <div class="col-md-2 col-sm-4">
+    <div class="card shadow-sm text-center p-2 border-start border-primary border-4">
+      <small class="text-muted text-uppercase fw-bold">Total Cases</small>
+      <h3 class="mb-0 text-primary">{{ kpis.total_cases }}</h3>
+    </div>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <div class="card shadow-sm text-center p-2 border-start border-warning border-4">
+      <small class="text-muted text-uppercase fw-bold">Active / Open</small>
+      <h3 class="mb-0 text-warning">{{ kpis.open_cases }}</h3>
+    </div>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <div class="card shadow-sm text-center p-2 border-start border-danger border-4">
+      <small class="text-muted text-uppercase fw-bold">SLA Breached</small>
+      <h3 class="mb-0 text-danger">{{ kpis.sla_breached }}</h3>
+    </div>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <div class="card shadow-sm text-center p-2 border-start border-info border-4">
+      <small class="text-muted text-uppercase fw-bold">SLA At Risk</small>
+      <h3 class="mb-0 text-info">{{ kpis.sla_at_risk }}</h3>
+    </div>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <div class="card shadow-sm text-center p-2 border-start border-success border-4">
+      <small class="text-muted text-uppercase fw-bold">Resolved</small>
+      <h3 class="mb-0 text-success">{{ kpis.resolved_cases }}</h3>
+    </div>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <div class="card shadow-sm text-center p-2 border-start border-dark border-4">
+      <small class="text-muted text-uppercase fw-bold">Escalated</small>
+      <div class="small fw-bold text-dark mt-1">
+        <span class="badge bg-warning text-dark">L1: {{ kpis.escalated_l1 }}</span>
+        <span class="badge bg-danger">L2: {{ kpis.escalated_l2 }}</span>
+        <span class="badge bg-dark">L3: {{ kpis.escalated_l3 }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Escalation Alerts Feed -->
+{% if recent_alerts %}
+<div class="card shadow-sm border-danger mb-4">
+  <div class="card-header bg-danger text-white py-2 d-flex justify-content-between align-items-center">
+    <span class="fw-bold">Active Escalation Alerts Feed</span>
+    <span class="badge bg-light text-danger">{{ recent_alerts|length }} Active</span>
+  </div>
+  <div class="card-body p-0">
+    <ul class="list-group list-group-flush small">
+      {% for alert in recent_alerts %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <span class="badge bg-danger">L{{ alert.level }}</span>
+            <a href="{% url 'officer_portal:complaint_detail' alert.complaint.id %}" class="fw-bold ms-2">{{ alert.complaint.complaint_code }}</a>
+            &bull; {{ alert.complaint.institution.name|default:"General" }}
+            &bull; Cell: {{ alert.complaint.cell.name|default:"Unassigned" }}
+            &bull; Priority: {{ alert.complaint.priority }}
+          </div>
+          <span class="text-muted">{{ alert.triggered_at|naturaltime }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<!-- Charts Section -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white fw-bold">Active Cases by AICTE Cell</div>
+      <div class="card-body"><canvas id="cellChart" height="200"></canvas></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white fw-bold">By Bureau</div>
+      <div class="card-body"><canvas id="bureauChart" height="200"></canvas></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white fw-bold">By Source Channel</div>
+      <div class="card-body"><canvas id="channelChart" height="200"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white fw-bold">Active Cases by State</div>
+      <div class="card-body"><canvas id="stateChart" height="180"></canvas></div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-header bg-white fw-bold">Cases by Category</div>
+      <div class="card-body"><canvas id="categoryChart" height="180"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- Multi-Dimensional Filters -->
+<div class="card shadow-sm mb-4">
+  <div class="card-header bg-light"><strong>Filters &amp; Case Search</strong></div>
+  <div class="card-body">
+    <form method="get" class="row g-2">
+      <div class="col-md-3">
+        <input type="text" name="q" class="form-control form-control-sm" placeholder="Search ID, Subject, Institution..." value="{{ selected_filters.q }}">
+      </div>
+      <div class="col-md-2">
+        <select name="bureau" class="form-select form-select-sm">
+          <option value="">All Bureaus</option>
+          {% for b in bureaus %}
+            <option value="{{ b.slug }}" {% if selected_filters.bureau == b.slug %}selected{% endif %}>{{ b.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="cell" class="form-select form-select-sm">
+          <option value="">All Cells</option>
+          {% for c in cells %}
+            <option value="{{ c.slug }}" {% if selected_filters.cell == c.slug %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="state" class="form-select form-select-sm">
+          <option value="">All States</option>
+          {% for st in states %}
+            <option value="{{ st }}" {% if selected_filters.state == st %}selected{% endif %}>{{ st }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <select name="category" class="form-select form-select-sm">
+          <option value="">All Categories</option>
+          {% for cat in categories %}
+            <option value="{{ cat.id }}" {% if selected_filters.category == cat.id|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-2">
+        <select name="priority" class="form-select form-select-sm">
+          <option value="">All Priorities</option>
+          {% for p, plabel in priorities %}
+            <option value="{{ p }}" {% if selected_filters.priority == p %}selected{% endif %}>{{ plabel }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="status" class="form-select form-select-sm">
+          <option value="">All Statuses</option>
+          {% for s, slabel in statuses %}
+            <option value="{{ s }}" {% if selected_filters.status == s %}selected{% endif %}>{{ slabel }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="sla_state" class="form-select form-select-sm">
+          <option value="">All SLA States</option>
+          <option value="BREACHED" {% if selected_filters.sla_state == "BREACHED" %}selected{% endif %}>Breached</option>
+          <option value="AT_RISK" {% if selected_filters.sla_state == "AT_RISK" %}selected{% endif %}>At Risk (>=80%)</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="source_channel" class="form-select form-select-sm">
+          <option value="">All Channels</option>
+          {% for ch, chlabel in channels %}
+            <option value="{{ ch }}" {% if selected_filters.source_channel == ch %}selected{% endif %}>{{ chlabel }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <select name="is_court_rti" class="form-select form-select-sm">
+          <option value="">Court/RTI (All)</option>
+          <option value="1" {% if selected_filters.is_court_rti == "1" %}selected{% endif %}>Court / RTI Only</option>
+        </select>
+      </div>
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filter</button>
+        <a href="{% url 'command_centre:dashboard' %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Cases Data Table -->
+<div class="table-responsive bg-white shadow-sm rounded mb-4">
+  <table class="table table-hover mb-0">
+    <thead class="table-light">
+      <tr>
+        <th>Case ID</th>
+        <th>Institution</th>
+        <th>Cell</th>
+        <th>Category</th>
+        <th>Priority</th>
+        <th>Status</th>
+        <th>Stage</th>
+        <th>SLA Status</th>
+        <th>Escalation</th>
+        <th>Channel</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in page_obj %}
+        <tr>
+          <td><a href="{% url 'officer_portal:complaint_detail' c.id %}" class="fw-bold">{{ c.complaint_code }}</a></td>
+          <td>
+            {{ c.institution.name|default:"General"|truncatechars:30 }}
+            {% if c.institution.risk_score %}
+              <span class="badge bg-{% if c.institution.risk_score.band == 'CRITICAL' %}danger{% elif c.institution.risk_score.band == 'HIGH' %}warning text-dark{% else %}light text-dark border{% endif %}">
+                Risk {{ c.institution.risk_score.band }}
+              </span>
+            {% endif %}
+          </td>
+          <td>{{ c.cell.name|default:"Unassigned" }}</td>
+          <td>{{ c.category.name|default:"-" }}</td>
+          <td>
+            {% if c.priority == "CRITICAL" %}<span class="badge bg-danger">CRITICAL</span>
+            {% elif c.priority == "HIGH" %}<span class="badge bg-warning text-dark">HIGH</span>
+            {% elif c.priority == "MEDIUM" %}<span class="badge bg-info text-dark">MEDIUM</span>
+            {% else %}<span class="badge bg-secondary">LOW</span>{% endif %}
+          </td>
+          <td><span class="badge bg-secondary">{{ c.status }}</span></td>
+          <td><span class="badge bg-light text-dark border">{{ c.lifecycle_stage }}</span></td>
+          <td>
+            {% if c.is_sla_breached %}
+              <span class="badge bg-danger">Breached</span>
+            {% else %}
+              <span class="badge bg-success">On Track</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if c.escalation_level > 0 %}
+              <span class="badge bg-danger">L{{ c.escalation_level }}</span>
+            {% else %}
+              <span class="text-muted small">-</span>
+            {% endif %}
+          </td>
+          <td><span class="badge bg-light text-dark border">{{ c.source_channel }}</span></td>
+          <td class="small">{{ c.created_at|date:"d M Y" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="11" class="text-center py-4 text-muted">No cases match the selected filter criteria.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav>
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">Previous</a></li>
+    {% endif %}
+    <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
+    {% if page_obj.has_next %}
+      <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">Next</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const chartsData = {{ charts|safe }};
+
+  new Chart(document.getElementById('cellChart'), {
+    type: 'bar',
+    data: {
+      labels: chartsData.cell.labels,
+      datasets: [{ label: 'Active Complaints', data: chartsData.cell.data, backgroundColor: '#0d6efd' }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+
+  new Chart(document.getElementById('bureauChart'), {
+    type: 'doughnut',
+    data: {
+      labels: chartsData.bureau.labels,
+      datasets: [{ data: chartsData.bureau.data, backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6f42c1'] }]
+    },
+    options: { responsive: true }
+  });
+
+  new Chart(document.getElementById('channelChart'), {
+    type: 'pie',
+    data: {
+      labels: chartsData.channel.labels,
+      datasets: [{ data: chartsData.channel.data, backgroundColor: ['#20c997', '#0dcaf0', '#fd7e14', '#d63384', '#6c757d'] }]
+    },
+    options: { responsive: true }
+  });
+
+  new Chart(document.getElementById('stateChart'), {
+    type: 'bar',
+    data: {
+      labels: chartsData.state.labels,
+      datasets: [{ label: 'Cases', data: chartsData.state.data, backgroundColor: '#fd7e14' }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+
+  new Chart(document.getElementById('categoryChart'), {
+    type: 'bar',
+    data: {
+      labels: chartsData.category.labels,
+      datasets: [{ label: 'Cases', data: chartsData.category.data, backgroundColor: '#6f42c1' }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+</script>
+{% endblock %}

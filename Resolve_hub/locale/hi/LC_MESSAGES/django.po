@@ -1,0 +1,135 @@
+# Translation of Resolve_Hub to Hindi
+# Copyright (C) 2026 Resolve_Hub
+msgid ""
+msgstr ""
+"Project-Id-Version: Resolve_Hub 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-26 12:00+0530\n"
+"PO-Revision-Date: 2026-10-26 12:00+0530\n"
+"Last-Translator: Resolve_Hub Team\n"
+"Language-Team: Hindi\n"
+"Language: hi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Resolve_Hub"
+msgstr "रिसॉल्व_हब"
+
+msgid "Dashboard"
+msgstr "डैशबोर्ड"
+
+msgid "Complaints"
+msgstr "शिकायतें"
+
+msgid "My complaints"
+msgstr "मेरी शिकायतें"
+
+msgid "New complaint"
+msgstr "नई शिकायत दर्ज करें"
+
+msgid "Track Status"
+msgstr "स्थिति ट्रैक करें"
+
+msgid "Command Centre"
+msgstr "कमांड सेन्टर"
+
+msgid "Officer Portal"
+msgstr "अधिकारी पोर्टल"
+
+msgid "Risk Radar"
+msgstr "जोखिम रडार"
+
+msgid "Login"
+msgstr "लॉग इन"
+
+msgid "Logout"
+msgstr "लॉग आउट"
+
+msgid "Register"
+msgstr "पंजीकरण"
+
+msgid "Submitted"
+msgstr "दर्ज किया गया"
+
+msgid "Under review"
+msgstr "समीक्षाधीन"
+
+msgid "In progress"
+msgstr "प्रगति पर है"
+
+msgid "Awaiting Complainant"
+msgstr "शिकायतकर्ता की प्रतीक्षा"
+
+msgid "Resolved"
+msgstr "निस्तारित"
+
+msgid "Rejected"
+msgstr "अस्वीकृत"
+
+msgid "Spam"
+msgstr "स्पैम"
+
+msgid "Closed"
+msgstr "बंद"
+
+msgid "Logged"
+msgstr "दर्ज"
+
+msgid "Triaged"
+msgstr "वर्गीकृत"
+
+msgid "Assigned"
+msgstr "आवंटित"
+
+msgid "Action"
+msgstr "कार्यवाही"
+
+msgid "Low"
+msgstr "कम"
+
+msgid "Medium"
+msgstr "मध्यम"
+
+msgid "High"
+msgstr "उच्च"
+
+msgid "Critical"
+msgstr "अति गंभीर"
+
+msgid "Subject"
+msgstr "विषय"
+
+msgid "Description"
+msgstr "विवरण"
+
+msgid "Technical Institution"
+msgstr "तकनीकी संस्थान"
+
+msgid "Category"
+msgstr "श्रेणी"
+
+msgid "Status"
+msgstr "स्थिति"
+
+msgid "Priority"
+msgstr "प्राथमिकता"
+
+msgid "Cell"
+msgstr "सेल"
+
+msgid "Bureau"
+msgstr "ब्यूरो"
+
+msgid "State"
+msgstr "राज्य"
+
+msgid "Track Grievance Status"
+msgstr "शिकायत की स्थिति ट्रैक करें"
+
+msgid "Enter your AICTE grievance case ID and registered contact"
+msgstr "अपनी एआईसीटीई शिकायत केस आईडी और पंजीकृत संपर्क दर्ज करें"
+
+msgid "Check Status"
+msgstr "स्थिति देखें"

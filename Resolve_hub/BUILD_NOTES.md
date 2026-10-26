@@ -1,6 +1,6 @@
 # BUILD_NOTES.md — What was built
 
-This is a working implementation of CampusResolve through the full 15-phase
+This is a working implementation of Resolve_Hub through the full 15-phase
 plan in `IMPLEMENTATION.md`. `python manage.py check` and the full test
 suite (28 tests) pass.
 

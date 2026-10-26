@@ -142,7 +142,7 @@ def verify_registration(request):
                     metadata={"channel": channel},
                 )
                 auth_login(request, user)
-                messages.success(request, "Your account is verified. Welcome to CampusResolve!")
+                messages.success(request, "Your account is verified. Welcome to Resolve_Hub!")
                 return redirect("accounts:post_login_redirect")
 
             messages.error(

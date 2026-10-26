@@ -5,7 +5,7 @@ from .models import LoginOTP, User
 
 
 @admin.register(User)
-class CampusResolveUserAdmin(UserAdmin):
+class ResolveHubUserAdmin(UserAdmin):
     """
     Superusers can manage users here, but note: is_staff/is_superuser alone
     is NOT Director authorization in this app (see director_portal.permissions).
@@ -19,7 +19,7 @@ class CampusResolveUserAdmin(UserAdmin):
     ordering = ("-date_joined",)
     fieldsets = UserAdmin.fieldsets + (
         (
-            "CampusResolve profile",
+            "Resolve_Hub profile",
             {
                 "fields": (
                     "role",

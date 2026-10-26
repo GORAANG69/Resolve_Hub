@@ -1,12 +1,30 @@
 from django.contrib import admin
 
-from .models import Attachment, Complaint, ComplaintCategory, ComplaintStatusHistory
+from .models import (
+    Attachment,
+    CategoryCellRoute,
+    Complaint,
+    ComplaintCategory,
+    ComplaintStatusHistory,
+    EscalationEvent,
+)
 
 
 @admin.register(ComplaintCategory)
 class ComplaintCategoryAdmin(admin.ModelAdmin):
     list_display = ("name", "slug", "is_active")
     prepopulated_fields = {"slug": ("name",)}
+
+
+@admin.register(CategoryCellRoute)
+class CategoryCellRouteAdmin(admin.ModelAdmin):
+    list_display = ("category", "cell")
+
+
+@admin.register(EscalationEvent)
+class EscalationEventAdmin(admin.ModelAdmin):
+    list_display = ("complaint", "level", "triggered_at", "notified_user", "channel")
+    list_filter = ("level", "channel")
 
 
 class AttachmentInline(admin.TabularInline):
@@ -23,8 +41,18 @@ class StatusHistoryInline(admin.TabularInline):
 
 @admin.register(Complaint)
 class ComplaintAdmin(admin.ModelAdmin):
-    list_display = ("complaint_code", "student", "category", "status", "spam_classification", "created_at")
-    list_filter = ("status", "spam_classification", "category", "is_confidential")
-    search_fields = ("complaint_code", "subject", "student__email", "student__roll_number")
+    list_display = (
+        "complaint_code",
+        "student",
+        "institution",
+        "cell",
+        "priority",
+        "status",
+        "escalation_level",
+        "spam_classification",
+        "created_at",
+    )
+    list_filter = ("status", "priority", "escalation_level", "cell", "category", "is_court_rti")
+    search_fields = ("complaint_code", "subject", "student__email", "institution__name", "institution__aicte_id")
     readonly_fields = ("complaint_code", "spam_score", "spam_classification", "created_at", "updated_at")
     inlines = [AttachmentInline, StatusHistoryInline]

@@ -1,6 +1,6 @@
-# CampusResolve — College Complaint & Grievance Management System
+# Resolve_Hub — Integrated Command Centre for AICTE Grievances
 
-CampusResolve is a secure grievance portal for colleges. Verified students submit and track complaints; the Director receives a protected dashboard to review, triage, update and resolve them. The application also calculates an explainable spam-risk score to help identify duplicate or mischievous submissions without silently discarding genuine grievances.
+Resolve_Hub is a centralised command centre for registering, routing, tracking, and escalating institution-related complaint cases across AICTE Bureaus and Cells (Smart India Hackathon 2026, problem statement SIH26264). Verified complainants (students, faculty, public) submit grievances against technical institutions; AICTE officers in specific cells (Approval, PGRC, Regional Office, Legal) and leadership (Section Heads, Bureau Heads, Member Secretary, Director) triage, monitor, and resolve them. The application features multi-channel intake (Web, Email, Letter OCR, CPGRAMS, Court/RTI), AI-assisted bilingual triage (Hindi + English), 4-level SLA escalation, an institutional Risk Radar, and a privacy-preserving public tracking portal.
 
 ## Stack
 - **Backend:** Django 5.x / Python 3.12+
@@ -77,7 +77,7 @@ Support **verified-but-confidential** complaints: the system retains the verifie
 
 ## Repository layout
 ```text
-campusresolve/
+Resolve_hub/
 ├── manage.py
 ├── CLAUDE.md
 ├── README.md

@@ -1,4 +1,4 @@
-# ARCHITECTURE.md — CampusResolve
+# ARCHITECTURE.md — Resolve_Hub
 
 ## 1. System boundary
 ```text

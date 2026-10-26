@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Institutional Risk Radar - Resolve_Hub{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h2>AICTE Institutional Risk Radar</h2>
+    <p class="text-muted small mb-0">
+      Explainable Institutional Risk Profiling (Volume, Severity, Repeat Rate, SLA Breaches, Court/RTI) &bull; SIH26264
+    </p>
+  </div>
+  <div>
+    <a href="{% url 'command_centre:dashboard' %}" class="btn btn-outline-primary">Back to Command Centre</a>
+  </div>
+</div>
+
+<div class="alert alert-light border small text-muted mb-4">
+  <strong>Algorithm &amp; Privacy Safeguards:</strong> Risk scores (0-100) are dynamically computed from 12-month complaint frequency, high/critical severity ratio, recurring duplicate signals, unresolved/SLA breach counts, and active Court/RTI references. Complainant identities are strictly isolated and never included in risk metrics.
+</div>
+
+<div class="table-responsive bg-white shadow-sm rounded">
+  <table class="table table-hover mb-0">
+    <thead class="table-dark">
+      <tr>
+        <th>Rank</th>
+        <th>Institution</th>
+        <th>AICTE ID</th>
+        <th>State / District</th>
+        <th>Risk Score</th>
+        <th>Risk Band</th>
+        <th>12M Volume</th>
+        <th>High / Critical</th>
+        <th>Duplicates</th>
+        <th>Court / RTI</th>
+        <th>Last Computed</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in scores %}
+        <tr class="{% if s.band == 'CRITICAL' %}table-danger{% elif s.band == 'HIGH' %}table-warning{% endif %}">
+          <td class="fw-bold">{{ forloop.counter }}</td>
+          <td><strong>{{ s.institution.name }}</strong></td>
+          <td><code>{{ s.institution.aicte_id }}</code></td>
+          <td>{{ s.institution.state }}, {{ s.institution.district }}</td>
+          <td><span class="fs-5 fw-bold">{{ s.score }}</span></td>
+          <td>
+            <span class="badge bg-{% if s.band == 'CRITICAL' %}danger{% elif s.band == 'HIGH' %}warning text-dark{% elif s.band == 'MEDIUM' %}info text-dark{% else %}success{% endif %} fs-6">
+              {{ s.band }}
+            </span>
+          </td>
+          <td>{{ s.components.total_complaints_12m|default:"0" }}</td>
+          <td>{{ s.components.high_priority_count|default:"0" }}</td>
+          <td>{{ s.components.duplicate_count|default:"0" }}</td>
+          <td>{{ s.components.court_rti_count|default:"0" }}</td>
+          <td class="small text-muted">{{ s.computed_at|date:"d M Y H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="11" class="text-center py-4 text-muted">No institutional risk scores computed yet. Run <code>python manage.py compute_risk_scores</code>.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

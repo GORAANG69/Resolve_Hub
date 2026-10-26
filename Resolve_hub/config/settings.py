@@ -1,10 +1,11 @@
 """
-Django settings for CampusResolve (config project).
+Django settings for Resolve_Hub (config project).
 Phase 1 (DB), Phase 2 (custom user), Phase 15 (hardening) are all
 driven from environment variables so the same code runs in local
 dev (SQLite) and production (Supabase PostgreSQL) without changes.
 """
 from pathlib import Path
+import sys
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,7 +34,11 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     # Local apps
     "apps.accounts",
+    "apps.institutions",
     "apps.complaints",
+    "apps.officer_portal",
+    "apps.command_centre",
+    "apps.triage",
     "apps.director_portal",
     "apps.hod_portal",
     "apps.spam_detection",
@@ -44,6 +49,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -104,6 +110,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+if "test" in sys.argv:
+    PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
 # Phase 2: custom user model, set before first migration.
 AUTH_USER_MODEL = "accounts.User"
 
@@ -115,6 +124,23 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
+
+LANGUAGES = [
+    ("en", "English"),
+    ("hi", "हिन्दी"),
+]
+LOCALE_PATHS = [BASE_DIR / "locale"]
+
+# SLA and AI Triage settings
+DEFAULT_SLA_HOURS = env.int("DEFAULT_SLA_HOURS", default=168)
+TRIAGE_CONFIDENCE_THRESHOLD = env.float("TRIAGE_CONFIDENCE_THRESHOLD", default=0.45)
+DUPLICATE_LINK_THRESHOLD = env.float("DUPLICATE_LINK_THRESHOLD", default=0.80)
+
+# Optional IMAP ingestion
+IMAP_HOST = env("IMAP_HOST", default="")
+IMAP_USER = env("IMAP_USER", default="")
+IMAP_PASSWORD = env("IMAP_PASSWORD", default="")
+IMAP_FOLDER = env("IMAP_FOLDER", default="INBOX")
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
@@ -167,7 +193,7 @@ EMAIL_PORT = env.int("EMAIL_PORT", default=587)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@campusresolve.local")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@resolvehub.local")
 
 TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID", default="")
 TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN", default="")

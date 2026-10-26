@@ -76,22 +76,22 @@ def _message_body(code: str, purpose: str) -> str:
     # NB: the "... code is: <digits>" shape is relied on by tests that parse
     # the code out of mail.outbox - keep that substring intact if reworded.
     label = (
-        "CampusResolve account verification code"
+        "Resolve_Hub account verification code"
         if purpose == OTPPurpose.REGISTRATION
-        else "CampusResolve login verification code"
+        else "Resolve_Hub login verification code"
     )
     return (
         f"Your {label} is: {code}\n\n"
         f"This code expires in {settings.OTP_EXPIRY_MINUTES} minutes and can only be used once. "
-        "Never share this code with anyone, including CampusResolve staff."
+        "Never share this code with anyone, including Resolve_Hub staff."
     )
 
 
 def _deliver_email(user, code: str, purpose: str) -> None:
     subject = (
-        "Verify your CampusResolve account"
+        "Verify your Resolve_Hub account"
         if purpose == OTPPurpose.REGISTRATION
-        else "Your CampusResolve login code"
+        else "Your Resolve_Hub login code"
     )
     try:
         send_mail(
