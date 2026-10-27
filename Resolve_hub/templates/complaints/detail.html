@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% block title %}{{ complaint.complaint_code }}{% endblock %}
 {% block content %}
-<h3>{{ complaint.complaint_code }} <span class="badge bg-secondary">{{ complaint.status }}</span></h3>
+<h3>{{ complaint.complaint_code }} <span class="badge bg-secondary">{{ complaint.status }}</span> <span class="badge {{ complaint.priority_badge_class }}">{{ complaint.priority }}</span></h3>
 <div class="row">
   <div class="col-md-8">
     <div class="card mb-3"><div class="card-body">
       <h5>{{ complaint.subject }}</h5>
-      <p class="text-muted mb-1">Category: {{ complaint.category.name }} &middot; Urgency: {{ complaint.student_urgency }}</p>
+      <p class="text-muted mb-1">
+        Category: {{ complaint.category.name }} &middot;
+        Urgency: {{ complaint.student_urgency }} &middot;
+        Priority: <span class="badge {{ complaint.priority_badge_class }}">{{ complaint.priority }}</span>
+      </p>
+      <div class="ci-priority-reason alert alert-light border py-1 px-2 mb-2 small"><i class="bi bi-info-circle me-1"></i><strong>Priority Assessment:</strong> {{ complaint.priority_explanation }}</div>
       {% if complaint.department_or_location %}<p class="text-muted">Location: {{ complaint.department_or_location }}</p>{% endif %}
       <p>{{ complaint.description|linebreaks }}</p>
       {% if complaint.is_confidential %}<span class="badge bg-info text-dark">Confidential</span>{% endif %}

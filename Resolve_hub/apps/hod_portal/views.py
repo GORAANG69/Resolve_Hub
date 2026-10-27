@@ -24,6 +24,8 @@ def _complaint_summary(complaint):
         "description": complaint.description,
         "department_or_location": complaint.department_or_location,
         "student_urgency": complaint.student_urgency,
+        "priority": complaint.priority,
+        "priority_explanation": complaint.priority_explanation,
         "status": complaint.status,
         "assigned_at": complaint.assigned_at,
         "hod_remark": complaint.hod_remark,
@@ -48,8 +50,14 @@ def dashboard(request):
     )
     summaries = [
         {
-            "id": c.id, "complaint_code": c.complaint_code, "category": c.category.name,
-            "subject": c.subject, "status": c.status, "assigned_at": c.assigned_at,
+            "id": c.id,
+            "complaint_code": c.complaint_code,
+            "category": c.category.name,
+            "subject": c.subject,
+            "priority": c.priority,
+            "priority_explanation": c.priority_explanation,
+            "status": c.status,
+            "assigned_at": c.assigned_at,
         }
         for c in complaints
     ]

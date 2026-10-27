@@ -205,6 +205,18 @@ class Complaint(models.Model):
             return False
         return timezone.now() > self.sla_due_at
 
+    @property
+    def priority_explanation(self) -> str:
+        if hasattr(self, "_cached_priority_explanation"):
+            return self._cached_priority_explanation
+        from .priority import get_complaint_priority_summary
+        return get_complaint_priority_summary(self)
+
+    @property
+    def priority_badge_class(self) -> str:
+        from .priority import get_priority_badge_class
+        return get_priority_badge_class(self.priority)
+
 
 class CategoryCellRoute(models.Model):
     category = models.OneToOneField(

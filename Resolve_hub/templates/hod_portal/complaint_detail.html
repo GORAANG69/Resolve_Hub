@@ -1,13 +1,25 @@
 {% extends "base.html" %}
 {% block title %}{{ complaint.complaint_code }}{% endblock %}
 {% block content %}
-<h3>{{ complaint.complaint_code }} <span class="badge bg-secondary">{{ complaint.status }}</span></h3>
+<h3>
+  {{ complaint.complaint_code }}
+  <span class="badge bg-secondary">{{ complaint.status }}</span>
+  {% if complaint.priority == "CRITICAL" %}<span class="badge bg-danger">CRITICAL</span>
+  {% elif complaint.priority == "HIGH" %}<span class="badge bg-warning text-dark">HIGH</span>
+  {% elif complaint.priority == "MEDIUM" %}<span class="badge bg-info text-dark">MEDIUM</span>
+  {% else %}<span class="badge bg-secondary">LOW</span>{% endif %}
+</h3>
 <div class="alert alert-info small">Student identity is withheld from department views by design.</div>
 <div class="row">
   <div class="col-md-7">
     <div class="card mb-3"><div class="card-body">
       <h5>{{ complaint.subject }}</h5>
-      <p class="text-muted">Category: {{ complaint.category }} &middot; Urgency: {{ complaint.student_urgency }}</p>
+      <p class="text-muted mb-1">
+        Category: {{ complaint.category }} &middot; Urgency: {{ complaint.student_urgency }}
+      </p>
+      {% if complaint.priority_explanation %}
+        <div class="ci-priority-reason alert alert-light border py-1 px-2 mb-2 small"><i class="bi bi-info-circle me-1"></i><strong>Priority Factor:</strong> {{ complaint.priority_explanation }}</div>
+      {% endif %}
       {% if complaint.department_or_location %}<p class="text-muted">Location: {{ complaint.department_or_location }}</p>{% endif %}
       <p>{{ complaint.description|linebreaks }}</p>
     </div></div>

@@ -118,7 +118,19 @@ def register_complaint(
 
     resolved_category = category or triage_res.category
     resolved_cell = triage_res.cell
-    resolved_priority = triage_res.priority
+
+    # Deterministic priority computation
+    from .priority import compute_priority
+    scored_priority, _, _ = compute_priority({
+        "subject": subject,
+        "description": description,
+        "category": resolved_category,
+        "institution": resolved_institution,
+        "is_court_rti": is_court_rti,
+        "student_urgency": student_urgency,
+        "status": Status.SUBMITTED,
+    })
+    resolved_priority = scored_priority or triage_res.priority
     detected_language = language or triage_res.language
 
     # 3. Compute SLA Due At

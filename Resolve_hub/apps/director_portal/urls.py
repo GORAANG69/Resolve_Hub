@@ -10,4 +10,5 @@ urlpatterns = [
     path("director/complaints/<int:pk>/", views.complaint_detail, name="complaint_detail"),
     path("director/spam-review/", views.spam_review, name="spam_review"),
     path("director/analytics/", views.analytics, name="analytics"),
+    path("director/institutional-analytics/", views.institutional_analytics, name="institutional_analytics"),
 ]

@@ -47,6 +47,9 @@
             {% elif complaint.priority == "HIGH" %}<span class="badge bg-warning text-dark">HIGH</span>
             {% elif complaint.priority == "MEDIUM" %}<span class="badge bg-info text-dark">MEDIUM</span>
             {% else %}<span class="badge bg-secondary">LOW</span>{% endif %}
+            {% if complaint.priority_explanation %}
+              <div class="ci-priority-reason text-muted small mt-1" style="font-size: 0.72rem;">{{ complaint.priority_explanation }}</div>
+            {% endif %}
           </div>
         </div>
 

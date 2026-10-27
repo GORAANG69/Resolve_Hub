@@ -39,6 +39,9 @@
         {% elif c.priority == "HIGH" %}<span class="badge bg-warning text-dark">HIGH</span>
         {% elif c.priority == "MEDIUM" %}<span class="badge bg-info text-dark">MEDIUM</span>
         {% else %}<span class="badge bg-secondary">LOW</span>{% endif %}
+        {% if c.priority_explanation %}
+          <div class="ci-priority-reason text-muted small mt-1" style="font-size: 0.72rem; max-width: 180px;">{{ c.priority_explanation }}</div>
+        {% endif %}
       </td>
       <td>
         <span class="badge bg-secondary">{{ c.status }}</span>

@@ -5,18 +5,27 @@
 <p class="text-muted small">Student identity is never shown here - only the complaint itself.</p>
 <div class="table-responsive">
 <table class="table bg-white">
-  <thead><tr><th>Code</th><th>Category</th><th>Subject</th><th>Status</th><th>Forwarded</th></tr></thead>
+  <thead><tr><th>Code</th><th>Category</th><th>Subject</th><th>Priority</th><th>Status</th><th>Forwarded</th></tr></thead>
   <tbody>
   {% for c in complaints %}
     <tr>
       <td><a href="{% url 'hod_portal:complaint_detail' c.id %}">{{ c.complaint_code }}</a></td>
       <td>{{ c.category }}</td>
       <td>{{ c.subject }}</td>
+      <td>
+        {% if c.priority == "CRITICAL" %}<span class="badge bg-danger">CRITICAL</span>
+        {% elif c.priority == "HIGH" %}<span class="badge bg-warning text-dark">HIGH</span>
+        {% elif c.priority == "MEDIUM" %}<span class="badge bg-info text-dark">MEDIUM</span>
+        {% else %}<span class="badge bg-secondary">LOW</span>{% endif %}
+        {% if c.priority_explanation %}
+          <div class="ci-priority-reason text-muted small mt-1" style="font-size: 0.72rem; max-width: 180px;">{{ c.priority_explanation }}</div>
+        {% endif %}
+      </td>
       <td><span class="badge bg-secondary">{{ c.status }}</span></td>
       <td>{{ c.assigned_at|date:"d M Y H:i" }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="5" class="text-muted">Nothing forwarded to your department yet.</td></tr>
+    <tr><td colspan="6" class="text-muted">Nothing forwarded to your department yet.</td></tr>
   {% endfor %}
   </tbody>
 </table>

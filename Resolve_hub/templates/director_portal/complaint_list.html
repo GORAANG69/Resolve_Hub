@@ -18,6 +18,18 @@
     </select>
   </div>
   <div class="col-auto">
+    <select name="priority" class="form-select">
+      <option value="">All priorities</option>
+      {% for value, label in priorities %}<option value="{{ value }}" {% if filters.priority == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto">
+    <select name="order" class="form-select">
+      <option value="urgent" {% if filters.order == 'urgent' or not filters.order %}selected{% endif %}>Sort: Urgent first</option>
+      <option value="date" {% if filters.order == 'date' %}selected{% endif %}>Sort: Newest first</option>
+    </select>
+  </div>
+  <div class="col-auto">
     <select name="spam_classification" class="form-select">
       <option value="">All spam levels</option>
       {% for value, label in spam_classifications %}<option value="{{ value }}" {% if filters.spam_classification == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
@@ -27,7 +39,7 @@
 </form>
 <div class="table-responsive">
 <table class="table bg-white">
-  <thead><tr><th>Code</th><th>Student</th><th>Roll No.</th><th>Category</th><th>Status</th><th>Spam</th><th>Created</th></tr></thead>
+  <thead><tr><th>Code</th><th>Student</th><th>Roll No.</th><th>Category</th><th>Priority</th><th>Status</th><th>Spam</th><th>Created</th></tr></thead>
   <tbody>
   {% for c in complaints %}
     <tr>
@@ -35,12 +47,16 @@
       <td>{{ c.student.full_name }}{% if c.is_confidential %} <span class="badge bg-info text-dark">Confidential</span>{% endif %}</td>
       <td>{{ c.student.roll_number }}</td>
       <td>{{ c.category.name }}</td>
+      <td>
+        <span class="badge {{ c.priority_badge_class }}">{{ c.priority }}</span>
+        <div class="ci-priority-reason text-muted small mt-1" style="font-size: 0.72rem; max-width: 200px;">{{ c.priority_explanation }}</div>
+      </td>
       <td>{{ c.status }}</td>
       <td>{{ c.spam_classification }}</td>
       <td>{{ c.created_at|date:"d M Y" }}</td>
     </tr>
   {% empty %}
-    <tr><td colspan="7" class="text-muted">No complaints match these filters.</td></tr>
+    <tr><td colspan="8" class="text-muted">No complaints match these filters.</td></tr>
   {% endfor %}
   </tbody>
 </table>

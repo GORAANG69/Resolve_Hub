@@ -1,12 +1,12 @@
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import Avg, Count, ExpressionWrapper, F, DurationField, Q
+from django.db.models import Avg, Case, Count, DurationField, ExpressionWrapper, F, IntegerField, Q, Value, When
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from apps.complaints.models import Complaint, ComplaintCategory, SpamClassification, Status
+from apps.complaints.models import Complaint, ComplaintCategory, PriorityLevel, SpamClassification, Status
 from apps.complaints.services import change_complaint_status, forward_complaint_to_department
-
+from .analytics import compute_institutional_analytics
 from .forms import DirectorRemarkForm, ForwardToDepartmentForm, StatusChangeForm
 from .permissions import director_required
 
@@ -30,35 +30,65 @@ def dashboard(request):
 
 @director_required
 def complaint_list(request):
-    complaints = Complaint.objects.select_related("student", "category").all()
+    complaints = Complaint.objects.select_related("student", "category", "institution").all()
 
     code = request.GET.get("code", "").strip()
     query = request.GET.get("q", "").strip()
     category = request.GET.get("category", "")
     status = request.GET.get("status", "")
+    priority = request.GET.get("priority", "").strip()
+    institution_id = request.GET.get("institution", "").strip()
     spam_classification = request.GET.get("spam_classification", "")
+    order = request.GET.get("order", "urgent").strip()
 
     if code:
         complaints = complaints.filter(complaint_code__icontains=code)
     if query:
         complaints = complaints.filter(
-            Q(student__full_name__icontains=query) | Q(student__roll_number__icontains=query)
+            Q(student__full_name__icontains=query)
+            | Q(student__roll_number__icontains=query)
+            | Q(institution__name__icontains=query)
         )
     if category:
         complaints = complaints.filter(category__slug=category)
     if status in dict(Status.choices):
         complaints = complaints.filter(status=status)
+    if priority in dict(PriorityLevel.choices):
+        complaints = complaints.filter(priority=priority)
+    if institution_id and institution_id.isdigit():
+        complaints = complaints.filter(institution_id=int(institution_id))
     if spam_classification in dict(SpamClassification.choices):
         complaints = complaints.filter(spam_classification=spam_classification)
+
+    # Urgent-first ordering by priority (Critical -> High -> Medium -> Low), then creation date
+    priority_ranking = Case(
+        When(priority=PriorityLevel.CRITICAL, then=Value(1)),
+        When(priority=PriorityLevel.HIGH, then=Value(2)),
+        When(priority=PriorityLevel.MEDIUM, then=Value(3)),
+        When(priority=PriorityLevel.LOW, then=Value(4)),
+        default=Value(5),
+        output_field=IntegerField(),
+    )
+    if order == "date":
+        complaints = complaints.order_by("-created_at")
+    else:
+        complaints = complaints.order_by(priority_ranking, "-created_at")
 
     context = {
         "complaints": complaints[:200],
         "categories": ComplaintCategory.objects.filter(is_active=True),
         "statuses": Status.choices,
+        "priorities": PriorityLevel.choices,
         "spam_classifications": SpamClassification.choices,
         "filters": {
-            "code": code, "q": query, "category": category,
-            "status": status, "spam_classification": spam_classification,
+            "code": code,
+            "q": query,
+            "category": category,
+            "status": status,
+            "priority": priority,
+            "institution": institution_id,
+            "spam_classification": spam_classification,
+            "order": order,
         },
     }
     return render(request, "director_portal/complaint_list.html", context)
@@ -137,27 +167,13 @@ def spam_review(request):
 
 @director_required
 def analytics(request):
-    complaints = Complaint.objects.all()
-
-    status_counts = list(complaints.values("status").annotate(count=Count("id")).order_by("status"))
-    category_counts = list(
-        complaints.values("category__name").annotate(count=Count("id")).order_by("-count")
-    )
-    spam_counts = list(
-        complaints.values("spam_classification").annotate(count=Count("id")).order_by("spam_classification")
-    )
-
-    resolved = complaints.filter(resolved_at__isnull=False).annotate(
-        resolution_time=ExpressionWrapper(F("resolved_at") - F("created_at"), output_field=DurationField())
-    )
-    avg_resolution = resolved.aggregate(avg=Avg("resolution_time"))["avg"]
-    avg_resolution_hours = round(avg_resolution.total_seconds() / 3600, 1) if avg_resolution else None
-
-    context = {
-        "total": complaints.count(),
-        "status_counts": status_counts,
-        "category_counts": category_counts,
-        "spam_counts": spam_counts,
-        "avg_resolution_hours": avg_resolution_hours,
-    }
+    """
+    Institutional Complaint Trend Analysis & Comprehensive Metrics.
+    Aggregates real complaint records by institution, category, priority, status, and velocity.
+    """
+    context = compute_institutional_analytics(request.GET.dict())
     return render(request, "director_portal/analytics.html", context)
+
+
+# Direct alias for consistent institutional analytics routing
+institutional_analytics = analytics
