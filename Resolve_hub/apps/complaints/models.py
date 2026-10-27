@@ -268,3 +268,66 @@ class ComplaintStatusHistory(models.Model):
 
     def __str__(self):
         return f"{self.complaint.complaint_code}: {self.old_status} -> {self.new_status}"
+
+
+class StudentFeedback(models.Model):
+    """
+    Dataset A: Student Feedback Dataset (brarajit18/student-feedback-dataset).
+    Stores academic evaluation survey responses across 6 categories with
+    ground-truth sentiment scores (-1: Negative, 0: Neutral, 1: Positive).
+    Maintained as historical analytical records separate from operational complaints.
+    """
+
+    class Sentiment(models.IntegerChoices):
+        NEGATIVE = -1, "Negative"
+        NEUTRAL = 0, "Neutral"
+        POSITIVE = 1, "Positive"
+
+    source_id = models.CharField(max_length=64, unique=True, db_index=True)
+    response_index = models.PositiveIntegerField(db_index=True)
+    category = models.CharField(max_length=64, db_index=True)
+    sentiment_score = models.IntegerField(choices=Sentiment.choices)
+    sentiment_label = models.CharField(max_length=16, default="Neutral")
+    feedback_text = models.TextField()
+    source_batch = models.CharField(max_length=100, default="brarajit18/student-feedback-dataset")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["response_index", "category"]
+        indexes = [
+            models.Index(fields=["category", "sentiment_score"]),
+            models.Index(fields=["sentiment_label"]),
+            models.Index(fields=["source_batch"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.category}] {self.sentiment_label}: {self.feedback_text[:40]}"
+
+
+class CitizenGrievance(models.Model):
+    """
+    Dataset B: Citizen Grievance Dataset (abhisheksingh016/citizen-grievance-dataset).
+    Stores multilingual citizen grievances (Hindi, Hinglish, English) categorized
+    according to CPGRAMS conventions across 14 public service departments.
+    Maintained as historical analytical records separate from operational complaints.
+    """
+
+    grievance_id = models.CharField(max_length=64, unique=True, db_index=True)
+    text = models.TextField()
+    category = models.CharField(max_length=100, db_index=True)
+    language = models.CharField(max_length=10, default="en")
+    source_file = models.CharField(max_length=100, default="grievances_synthetic.csv")
+    source_batch = models.CharField(max_length=100, default="abhisheksingh016/citizen-grievance-dataset")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["grievance_id"]
+        indexes = [
+            models.Index(fields=["category"]),
+            models.Index(fields=["language"]),
+            models.Index(fields=["source_file"]),
+            models.Index(fields=["source_batch"]),
+        ]
+
+    def __str__(self):
+        return f"{self.grievance_id} ({self.category}): {self.text[:40]}"

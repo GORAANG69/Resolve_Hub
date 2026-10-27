@@ -7,3 +7,4 @@ staticfiles/
 media/
 *.egg-info/
 .DS_Store
+data/

@@ -407,6 +407,48 @@ class MockDataService {
     link.click();
     document.body.removeChild(link);
   }
+
+  async fetchRealDatasetsAnalytics() {
+    try {
+      const response = await fetch("/command-centre/api/datasets/analytics/");
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (e) {
+      console.warn("Real datasets analytics fetch failed:", e);
+    }
+    return null;
+  }
+
+  async fetchCitizenGrievances(page = 1, pageSize = 20, category = "", search = "") {
+    try {
+      const params = new URLSearchParams({ page, page_size: pageSize });
+      if (category) params.append("category", category);
+      if (search) params.append("search", search);
+      const response = await fetch(`/command-centre/api/datasets/citizen-grievances/?${params.toString()}`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (e) {
+      console.warn("Citizen grievances API fetch failed:", e);
+    }
+    return null;
+  }
+
+  async fetchStudentFeedback(page = 1, pageSize = 20, category = "", sentiment = "") {
+    try {
+      const params = new URLSearchParams({ page, page_size: pageSize });
+      if (category) params.append("category", category);
+      if (sentiment) params.append("sentiment", sentiment);
+      const response = await fetch(`/command-centre/api/datasets/student-feedback/?${params.toString()}`);
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch (e) {
+      console.warn("Student feedback API fetch failed:", e);
+    }
+    return null;
+  }
 }
 
 export const mockDataService = new MockDataService();

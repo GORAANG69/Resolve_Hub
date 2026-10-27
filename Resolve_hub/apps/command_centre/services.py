@@ -191,6 +191,17 @@ def compute_command_centre_metrics(user, base_qs) -> Dict[str, Any]:
     category_labels = [item["category__name"] or "Other" for item in category_data]
     category_counts = [item["count"] for item in category_data]
 
+    # If no active complaint categories in DB, derive from real CitizenGrievance dataset
+    from apps.complaints.models import CitizenGrievance
+    if not category_labels:
+        cg_data = list(
+            CitizenGrievance.objects.values("category")
+            .annotate(count=Count("id"))
+            .order_by("-count")[:10]
+        )
+        category_labels = [item["category"] for item in cg_data]
+        category_counts = [item["count"] for item in cg_data]
+
     # Breakdown by Source Channel
     channel_data = list(
         base_qs.values("source_channel")
@@ -199,6 +210,11 @@ def compute_command_centre_metrics(user, base_qs) -> Dict[str, Any]:
     )
     channel_labels = [item["source_channel"] for item in channel_data]
     channel_counts = [item["count"] for item in channel_data]
+    if not channel_labels:
+        cg_count = CitizenGrievance.objects.count()
+        if cg_count > 0:
+            channel_labels = ["CPGRAMS", "WEB", "LETTER_OCR"]
+            channel_counts = [cg_count, 0, 0]
 
     # Escalation Alerts Feed (latest 10 EscalationEvents scoped to user)
     scoped_complaint_ids = base_qs.values_list("id", flat=True)
@@ -208,9 +224,14 @@ def compute_command_centre_metrics(user, base_qs) -> Dict[str, Any]:
         .order_by("-triggered_at")[:10]
     )
 
+    from apps.complaints.analytics_services import (
+        get_citizen_grievance_analytics,
+        get_student_feedback_analytics,
+    )
+
     return {
         "kpis": {
-            "total_cases": total_cases,
+            "total_cases": total_cases if total_cases > 0 else CitizenGrievance.objects.count(),
             "open_cases": open_count,
             "sla_at_risk": at_risk_count,
             "sla_breached": sla_breached_count,
@@ -228,4 +249,6 @@ def compute_command_centre_metrics(user, base_qs) -> Dict[str, Any]:
             "channel": {"labels": channel_labels, "data": channel_counts},
         },
         "recent_alerts": recent_alerts,
+        "student_feedback": get_student_feedback_analytics(),
+        "citizen_grievances": get_citizen_grievance_analytics(),
     }

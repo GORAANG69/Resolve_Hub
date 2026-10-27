@@ -143,6 +143,12 @@ def analytics(request):
     category_counts = list(
         complaints.values("category__name").annotate(count=Count("id")).order_by("-count")
     )
+    if not category_counts:
+        from apps.complaints.models import CitizenGrievance
+        cg_counts = list(
+            CitizenGrievance.objects.values("category").annotate(count=Count("id")).order_by("-count")[:10]
+        )
+        category_counts = [{"category__name": item["category"], "count": item["count"]} for item in cg_counts]
     spam_counts = list(
         complaints.values("spam_classification").annotate(count=Count("id")).order_by("spam_classification")
     )
