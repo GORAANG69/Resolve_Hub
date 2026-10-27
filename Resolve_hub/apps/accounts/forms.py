@@ -39,12 +39,13 @@ class StudentRegistrationForm(forms.ModelForm):
     complainant_type = forms.ChoiceField(
         choices=ComplainantType.choices,
         initial=ComplainantType.STUDENT,
+        required=False,
         label="I am registering as",
     )
     password1 = forms.CharField(label="Password", widget=forms.PasswordInput, min_length=8)
     password2 = forms.CharField(label="Confirm password", widget=forms.PasswordInput, min_length=8)
     dpdp_consent = forms.BooleanField(
-        required=True,
+        required=False,
         initial=True,
         label="I consent to the collection and processing of my details for grievance redressal under DPDP Act.",
     )
@@ -153,6 +154,9 @@ class EmailLoginForm(AuthenticationForm):
             {"autofocus": True, "placeholder": "you@example.com"}
         )
         bootstrapify(self)
+
+
+EmailAuthenticationForm = EmailLoginForm
 
 
 class OTPVerifyForm(forms.Form):

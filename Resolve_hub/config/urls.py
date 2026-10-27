@@ -5,9 +5,12 @@ from django.views.generic import RedirectView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", RedirectView.as_view(pattern_name="accounts:login", permanent=False), name="home"),
+    path("", include("apps.command_centre.urls")),
+    path("command-centre/", RedirectView.as_view(url="/", permanent=False)),
+    path("i18n/", include("django.conf.urls.i18n")),
     path("accounts/", include("apps.accounts.urls")),
-    path("", include("apps.complaints.urls")),
+    path("complaints/", include("apps.complaints.urls")),
+    path("officer/", include("apps.officer_portal.urls")),
     path("", include("apps.director_portal.urls")),
     path("", include("apps.hod_portal.urls")),
 ]

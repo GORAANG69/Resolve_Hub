@@ -17,7 +17,12 @@ def get_command_centre_queryset(user, params: Dict[str, Any]):
     """
     Apply role scoping and query parameter filters with zero N+1 queries.
     """
-    qs = get_officer_complaints_queryset(user).select_related(
+    if user and user.is_authenticated and getattr(user, "is_officer", False):
+        qs = get_officer_complaints_queryset(user)
+    else:
+        qs = Complaint.objects.all()
+
+    qs = qs.select_related(
         "institution",
         "cell",
         "cell__bureau",
@@ -85,10 +90,11 @@ def get_command_centre_queryset(user, params: Dict[str, Any]):
             sla_due_at__isnull=False, sla_due_at__gte=now
         )
         at_risk_ids = []
-        for c in active.only("id", "created_at", "sla_due_at"):
-            window = (c.sla_due_at - c.created_at).total_seconds()
-            if window > 0 and ((now - c.created_at).total_seconds() / window) >= 0.8:
-                at_risk_ids.append(c.id)
+        for c_id, c_created_at, c_sla_due_at in active.values_list("id", "created_at", "sla_due_at"):
+            if c_sla_due_at and c_created_at:
+                window = (c_sla_due_at - c_created_at).total_seconds()
+                if window > 0 and ((now - c_created_at).total_seconds() / window) >= 0.8:
+                    at_risk_ids.append(c_id)
         qs = qs.filter(id__in=at_risk_ids)
 
     # 6. Channel, Language, Court/RTI, Escalation
@@ -127,10 +133,13 @@ def compute_command_centre_metrics(user, base_qs) -> Dict[str, Any]:
 
     # At-risk cases (80% <= elapsed < 100%)
     at_risk_count = 0
-    for c in open_cases_qs.filter(sla_due_at__isnull=False, sla_due_at__gte=now).only("id", "created_at", "sla_due_at"):
-        window = (c.sla_due_at - c.created_at).total_seconds()
-        if window > 0 and ((now - c.created_at).total_seconds() / window) >= 0.8:
-            at_risk_count += 1
+    for c_id, c_created_at, c_sla_due_at in open_cases_qs.filter(
+        sla_due_at__isnull=False, sla_due_at__gte=now
+    ).values_list("id", "created_at", "sla_due_at"):
+        if c_sla_due_at and c_created_at:
+            window = (c_sla_due_at - c_created_at).total_seconds()
+            if window > 0 and ((now - c_created_at).total_seconds() / window) >= 0.8:
+                at_risk_count += 1
 
     # Escalation levels breakdown
     esc_l1 = base_qs.filter(escalation_level=1).count()

@@ -2,58 +2,112 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Resolve_Hub{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resolve_Hub — AICTE Institutional Grievance Monitoring System</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- Resolve_Hub Admin CSS -->
+  <link href="{% static 'css/resolvehub_admin.css' %}" rel="stylesheet">
 </head>
-<body class="bg-light">
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container">
-    <a class="navbar-brand" href="{% if user.is_authenticated %}{% url 'accounts:post_login_redirect' %}{% else %}{% url 'accounts:login' %}{% endif %}">Resolve_Hub</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarContent">
-      <ul class="navbar-nav me-auto">
-        {% if user.is_authenticated %}
-          {% if user.is_director or user.is_admin_role %}
-            <li class="nav-item"><a class="nav-link" href="{% url 'director_portal:dashboard' %}">Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'director_portal:complaint_list' %}">Complaints</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'director_portal:spam_review' %}">Spam review</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'director_portal:analytics' %}">Analytics</a></li>
-          {% elif user.is_hod %}
-            <li class="nav-item"><a class="nav-link" href="{% url 'hod_portal:dashboard' %}">Dashboard</a></li>
-          {% else %}
-            <li class="nav-item"><a class="nav-link" href="{% url 'complaints:dashboard' %}">Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'complaints:list' %}">My complaints</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url 'complaints:create' %}">New complaint</a></li>
-          {% endif %}
-        {% endif %}
-      </ul>
-      <ul class="navbar-nav">
-        {% if user.is_authenticated %}
-          <li class="nav-item"><span class="navbar-text text-light me-3">{{ user.full_name|default:user.email }} ({{ user.role }})</span></li>
-          <li class="nav-item">
-            <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
-              <button class="btn btn-outline-light btn-sm" type="submit">Logout</button>
-            </form>
-          </li>
-        {% else %}
-          <li class="nav-item"><a class="nav-link" href="{% url 'accounts:login' %}">Login</a></li>
-          <li class="nav-item"><a class="nav-link" href="{% url 'accounts:register' %}">Register</a></li>
-        {% endif %}
-      </ul>
+<body>
+
+  <!-- Primary Government Header -->
+  <header class="rh-header">
+    <div class="container-fluid px-4 d-flex flex-wrap justify-content-between align-items-center">
+      <div class="d-flex align-items-center gap-3">
+        <div style="background: #1E3E62; border: 1px solid #3B82F6; border-radius: 8px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #FFFFFF;">
+          <i class="bi bi-shield-check"></i>
+        </div>
+        <div>
+          <div class="rh-brand-title">
+            Resolve_Hub
+            <span class="badge bg-primary text-uppercase" style="font-size: 0.65rem; letter-spacing: 0.05em; padding: 0.25rem 0.5rem;">AICTE Regulatory Console</span>
+          </div>
+          <div class="rh-brand-subtitle">
+            All India Council for Technical Education &bull; Institutional Grievance Monitoring System
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-3 mt-2 mt-md-0">
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-white-50"><i class="bi bi-person-badge me-1"></i>Official:</span>
+          <select id="activeRoleSelector" class="form-select form-select-sm" style="background: #112942; color: #E2E8F0; border-color: #334E68; width: auto; font-size: 0.82rem;">
+            <option value="Director General">Dr. A. K. Mittal — Director General / Member Secretary</option>
+            <option value="Bureau Head (Approval)">Smt. Sunita Rao — Bureau Head (Approval &amp; Licensing)</option>
+            <option value="Section Head (PGRC)">Dr. Ramesh Verma — Section Head (PGRC Cell)</option>
+            <option value="Legal Officer">Adv. Rajesh Kumar — Legal &amp; Compliance Officer</option>
+            <option value="Senior Coordinator">Sh. Vikramaditya Sen — Anti-Ragging Coordinator</option>
+          </select>
+        </div>
+        <div class="text-end text-light small d-none d-lg-block border-start ps-3 border-secondary">
+          <div class="fw-bold">Head Office &bull; New Delhi</div>
+          <div class="text-white-50" style="font-size: 0.75rem;">Ministry of Education &bull; Govt. of India</div>
+        </div>
+      </div>
     </div>
-  </div>
-</nav>
-<div class="container mt-4 mb-5">
-  {% for message in messages %}
-    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-  {% endfor %}
-  {% block content %}{% endblock %}
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-{% block scripts %}{% endblock %}
+  </header>
+
+  <!-- Secondary Navigation Bar -->
+  <nav class="rh-subnav sticky-top">
+    <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
+      <div class="d-flex overflow-auto">
+        <a href="#overview" class="rh-nav-link active" data-view="overview">
+          <i class="bi bi-speedometer2 me-1"></i> Command Center
+        </a>
+        <a href="#registry" class="rh-nav-link" data-view="registry">
+          <i class="bi bi-card-checklist me-1"></i> Case Registry
+        </a>
+        <a href="#bureaus" class="rh-nav-link" data-view="bureaus">
+          <i class="bi bi-diagram-3 me-1"></i> Bureau Workload
+        </a>
+        <a href="#institutions" class="rh-nav-link" data-view="institutions">
+          <i class="bi bi-building me-1"></i> Institutions Directory
+        </a>
+        <a href="#reports" class="rh-nav-link" data-view="reports">
+          <i class="bi bi-graph-up-arrow me-1"></i> Reports &amp; Analytics
+        </a>
+        <a href="#activity" class="rh-nav-link" data-view="activity">
+          <i class="bi bi-clock-history me-1"></i> Activity Log
+        </a>
+        <a href="#settings" class="rh-nav-link" data-view="settings">
+          <i class="bi bi-sliders me-1"></i> Settings / Demo Controls
+        </a>
+      </div>
+      <div class="d-none d-xl-flex align-items-center text-muted small">
+        <i class="bi bi-shield-lock me-1 text-success"></i> Authorized Officer Session
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content Container -->
+  <main class="container-fluid px-4 py-4" id="mainContentArea">
+    {% block content %}
+    <!-- Injected dynamically by dashboardApp.js -->
+    {% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-top py-3 mt-5">
+    <div class="container-fluid px-4 d-flex flex-wrap justify-content-between align-items-center small text-muted">
+      <div>
+        <strong>Resolve_Hub</strong> &bull; AICTE Institutional Grievance Monitoring Platform
+      </div>
+      <div>
+        All India Council for Technical Education &bull; Ministry of Education &bull; Government of India
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Application Module Script -->
+  <script type="module" src="{% static 'js/dashboardApp.js' %}"></script>
 </body>
 </html>
