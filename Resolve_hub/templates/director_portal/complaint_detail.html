@@ -42,6 +42,61 @@
     </div></div>
     {% endif %}
 
+    {% if complaint.ai_intelligence %}
+    <div class="card mb-3 border-primary shadow-sm">
+      <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-cpu me-2"></i><strong>AI Case Intelligence &amp; Recommendations</strong></span>
+        <span class="badge bg-light text-primary">{{ complaint.ai_intelligence.confidence_score|floatformat:1 }}% Conf ({{ complaint.ai_intelligence.model_name }})</span>
+      </div>
+      <div class="card-body">
+        <h6 class="text-primary mb-1">{{ complaint.ai_intelligence.main_issue }}</h6>
+        <p class="small text-muted mb-3">{{ complaint.ai_intelligence.summary }}</p>
+
+        <div class="p-2 bg-light rounded border mb-3">
+          <strong class="small text-dark d-block"><i class="bi bi-lightbulb text-warning me-1"></i>Recommended Next Step:</strong>
+          <span class="small fw-semibold">{{ complaint.ai_intelligence.recommended_action }}</span>
+          <div class="small text-muted mt-1">{{ complaint.ai_intelligence.action_rationale }}</div>
+        </div>
+
+        {% if complaint.ai_intelligence.recommendation_actions.all %}
+          <strong class="small d-block text-secondary mb-2">Investigation Checklist:</strong>
+          <ul class="list-group list-group-flush small mb-0 border rounded">
+            {% for act in complaint.ai_intelligence.recommendation_actions.all %}
+              <li class="list-group-item d-flex justify-content-between align-items-center px-2 py-1">
+                <span>{{ act.title }}</span>
+                <span class="badge bg-{% if act.status == 'COMPLETED' %}success{% elif act.status == 'DISMISSED' %}secondary{% else %}primary{% endif %}">{{ act.get_status_display }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if complaint.related_from.all or complaint.related_to.all %}
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-link-45deg text-primary me-1"></i><strong>Related Institutional Complaints</strong></span>
+      </div>
+      <div class="card-body p-2">
+        <ul class="list-unstyled small mb-0">
+          {% for rel in complaint.related_from.all %}
+            <li class="mb-1 pb-1 border-bottom d-flex justify-content-between">
+              <span><strong>{{ rel.target_complaint.complaint_code }}</strong> &mdash; {{ rel.target_complaint.subject|truncatechars:35 }}</span>
+              <span class="badge bg-light text-dark border">{{ rel.get_relationship_type_display }}</span>
+            </li>
+          {% endfor %}
+          {% for rel in complaint.related_to.all %}
+            <li class="mb-1 pb-1 border-bottom d-flex justify-content-between">
+              <span><strong>{{ rel.source_complaint.complaint_code }}</strong> &mdash; {{ rel.source_complaint.subject|truncatechars:35 }}</span>
+              <span class="badge bg-light text-dark border">{{ rel.get_relationship_type_display }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="card mb-3"><div class="card-body">
       <h6>Remarks</h6>
       <form method="post">
@@ -59,6 +114,40 @@
   </div>
 
   <div class="col-md-5">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <strong><i class="bi bi-clock-history me-1 text-primary"></i> SLA &amp; Regulatory Status</strong>
+        {% if complaint.sla_countdown_info.status == "BREACHED" %}
+          <span class="badge bg-danger">BREACHED</span>
+        {% elif complaint.sla_countdown_info.status == "AT_RISK" %}
+          <span class="badge bg-warning text-dark">AT RISK</span>
+        {% elif complaint.sla_countdown_info.status == "COMPLETED" %}
+          <span class="badge bg-success">COMPLETED</span>
+        {% else %}
+          <span class="badge bg-success">ON TRACK</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="mb-2">
+          <small class="text-muted d-block">SLA Remaining</small>
+          <strong class="fs-5 {% if complaint.sla_countdown_info.status == 'BREACHED' %}text-danger{% elif complaint.sla_countdown_info.status == 'AT_RISK' %}text-warning{% else %}text-success{% endif %}">
+            {{ complaint.sla_countdown_info.badge_text }}
+          </strong>
+        </div>
+        <p class="mb-1 small">Due At: <strong>{{ complaint.sla_due_at|date:"d M Y H:i"|default:"Not computed" }}</strong></p>
+        <p class="mb-2 small">Priority: <strong>{{ complaint.priority }}</strong> &bull; Escalation: <strong>L{{ complaint.escalation_level }}</strong></p>
+        {% if complaint.legal_review %}
+          <div class="p-2 border rounded bg-light mt-2">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <strong class="small text-danger"><i class="bi bi-shield-fill-exclamation me-1"></i>Legal Flag</strong>
+              <span class="badge bg-danger">{{ complaint.legal_review.flag_level }}</span>
+            </div>
+            <p class="small text-muted mb-0">{{ complaint.legal_review.reason }}</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
     <div class="card mb-3"><div class="card-body">
       <h6>Forward to HOD</h6>
       {% if complaint.assigned_department %}

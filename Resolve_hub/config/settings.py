@@ -226,6 +226,11 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
 
+# Google Gemini AI Configuration & Model Fallback Chain
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+GEMINI_PRIMARY_MODEL = env("GEMINI_PRIMARY_MODEL", default="gemini-2.5-flash")
+GEMINI_FALLBACK_MODELS = env.list("GEMINI_FALLBACK_MODELS", default=["gemini-2.5-flash-lite", "gemini-1.5-flash"])
+
 # Never log PII, complaint contents, passwords, OTPs, or credentials.
 LOGGING = {
     "version": 1,

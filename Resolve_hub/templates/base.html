@@ -13,6 +13,12 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <!-- Resolve_Hub Admin CSS -->
   <link href="{% static 'css/resolvehub_admin.css' %}" rel="stylesheet">
+  <script>
+    (function() {
+      var savedTheme = localStorage.getItem('rh_theme_preference') || 'system';
+      document.documentElement.setAttribute('data-theme', savedTheme.toLowerCase());
+    })();
+  </script>
 </head>
 <body>
 
@@ -44,6 +50,19 @@
             <option value="Legal Officer">Adv. Rajesh Kumar — Legal &amp; Compliance Officer</option>
             <option value="Senior Coordinator">Sh. Vikramaditya Sen — Anti-Ragging Coordinator</option>
           </select>
+        </div>
+
+        <!-- Theme Selector (Light, Dark, System) -->
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1" type="button" id="themeDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.82rem; border-color: #334E68; background: #112942; color: #E2E8F0;">
+            <i class="bi bi-circle-half me-1" id="themeIconCurrent"></i>
+            <span id="themeLabelCurrent">Theme: System</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="themeDropdownBtn" style="font-size: 0.85rem;">
+            <li><button class="dropdown-item d-flex align-items-center gap-2 theme-choice-btn" type="button" data-theme="light"><i class="bi bi-sun text-warning"></i> Light Mode</button></li>
+            <li><button class="dropdown-item d-flex align-items-center gap-2 theme-choice-btn" type="button" data-theme="dark"><i class="bi bi-moon-stars text-info"></i> Dark Mode</button></li>
+            <li><button class="dropdown-item d-flex align-items-center gap-2 theme-choice-btn" type="button" data-theme="system"><i class="bi bi-display text-secondary"></i> System Preference</button></li>
+          </ul>
         </div>
         <div class="text-end text-light small d-none d-lg-block border-start ps-3 border-secondary">
           <div class="fw-bold">Head Office &bull; New Delhi</div>

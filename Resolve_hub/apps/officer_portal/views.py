@@ -26,6 +26,72 @@ def _safe_officer_summary(complaint: Complaint) -> dict:
             "band": inst.risk_score.band,
         }
 
+    # AI Case Intelligence
+    ai_intel = None
+    if hasattr(complaint, "ai_intelligence") and complaint.ai_intelligence:
+        ai_obj = complaint.ai_intelligence
+        ai_intel = {
+            "summary": ai_obj.summary,
+            "main_issue": ai_obj.main_issue,
+            "facts": ai_obj.facts or [],
+            "missing_evidence": ai_obj.missing_evidence or [],
+            "regulatory_concerns": ai_obj.regulatory_concerns or [],
+            "recommended_action": ai_obj.recommended_action,
+            "action_rationale": ai_obj.action_rationale,
+            "confidence_score": round(ai_obj.confidence_score * 100, 1),
+            "model_name": ai_obj.model_name,
+            "recommendation_actions": [
+                {
+                    "id": a.id,
+                    "title": a.title,
+                    "description": a.description,
+                    "action_type": a.action_type,
+                    "priority": a.priority,
+                    "status": a.status,
+                    "status_display": a.get_status_display(),
+                    "officer_notes": a.officer_notes,
+                }
+                for a in ai_obj.recommendation_actions.all()
+            ],
+        }
+
+    # Legal Attention Review
+    legal_rev = None
+    if hasattr(complaint, "legal_review") and complaint.legal_review:
+        lr_obj = complaint.legal_review
+        legal_rev = {
+            "flag_level": lr_obj.flag_level,
+            "reason": lr_obj.reason,
+            "evidence_excerpt": lr_obj.evidence_excerpt,
+            "status": lr_obj.status,
+            "review_notes": lr_obj.review_notes,
+        }
+
+    # Related Complaints (strictly scoped to same institution)
+    related_list = []
+    for rel in complaint.related_from.select_related("target_complaint", "target_complaint__category"):
+        related_list.append({
+            "complaint_code": rel.target_complaint.complaint_code,
+            "subject": rel.target_complaint.subject,
+            "category": rel.target_complaint.category.name if rel.target_complaint.category else "-",
+            "status": rel.target_complaint.status,
+            "priority": rel.target_complaint.priority,
+            "relationship_type": rel.get_relationship_type_display(),
+            "similarity_score": round(rel.similarity_score * 100, 1),
+            "is_confirmed": rel.is_confirmed,
+        })
+    for rel in complaint.related_to.select_related("source_complaint", "source_complaint__category"):
+        related_list.append({
+            "complaint_code": rel.source_complaint.complaint_code,
+            "subject": rel.source_complaint.subject,
+            "category": rel.source_complaint.category.name if rel.source_complaint.category else "-",
+            "status": rel.source_complaint.status,
+            "priority": rel.source_complaint.priority,
+            "relationship_type": rel.get_relationship_type_display(),
+            "similarity_score": round(rel.similarity_score * 100, 1),
+            "is_confirmed": rel.is_confirmed,
+        })
+
     return {
         "id": complaint.id,
         "complaint_code": complaint.complaint_code,
@@ -45,6 +111,7 @@ def _safe_officer_summary(complaint: Complaint) -> dict:
         "escalation_level": complaint.escalation_level,
         "sla_due_at": complaint.sla_due_at,
         "is_sla_breached": complaint.is_sla_breached,
+        "sla_countdown": complaint.sla_countdown_info,
         "is_court_rti": complaint.is_court_rti,
         "court_rti_reference": complaint.court_rti_reference,
         "duplicate_of": complaint.duplicate_of.complaint_code if complaint.duplicate_of else None,
@@ -53,6 +120,9 @@ def _safe_officer_summary(complaint: Complaint) -> dict:
         "director_public_remark": complaint.director_public_remark,
         "hod_remark": complaint.hod_remark,
         "created_at": complaint.created_at,
+        "ai_intelligence": ai_intel,
+        "legal_review": legal_rev,
+        "related_complaints": related_list,
         "status_history": [
             {
                 "new_status": h.new_status,
@@ -106,7 +176,16 @@ def dashboard(request):
 @officer_required
 def complaint_detail(request, pk: int):
     complaint = get_object_or_404(
-        Complaint.objects.select_related("category", "institution", "cell", "institution__risk_score"),
+        Complaint.objects.select_related(
+            "category", "institution", "cell", "institution__risk_score",
+            "ai_intelligence", "legal_review"
+        ).prefetch_related(
+            "ai_intelligence__recommendation_actions",
+            "relationships_from__target_complaint__category",
+            "relationships_to__source_complaint__category",
+            "status_history",
+            "attachments"
+        ),
         pk=pk,
     )
     if not can_officer_access_complaint(request.user, complaint):

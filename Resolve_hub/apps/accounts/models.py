@@ -81,6 +81,11 @@ class User(AbstractUser):
     department = models.CharField(
         max_length=20, choices=Department.choices, null=True, blank=True
     )
+    theme_preference = models.CharField(
+        max_length=10,
+        choices=[("LIGHT", "Light"), ("DARK", "Dark"), ("SYSTEM", "System")],
+        default="SYSTEM",
+    )
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

@@ -1,6 +1,8 @@
 /**
- * mockDataService.js - Centralized in-memory & localStorage mock service for Resolve_Hub
- * Provides deterministic state, CRUD updates, filtering, sorting, pagination, and CSV export.
+ * mockDataService.js - Centralized Data & API Service for Resolve_Hub
+ * Seamlessly interfaces with the Django backend REST APIs while preserving in-memory fallbacks.
+ * Powers live database metrics, case workspaces, AI recommendations, SLA count-downs,
+ * legal-attention reviews, and institutional duplicate links.
  */
 
 import { mockBureaus, mockOfficers } from "./mockBureaus.js";
@@ -9,9 +11,9 @@ import { mockCases } from "./mockCases.js";
 import { mockCaseHistory } from "./mockCaseHistory.js";
 import { calculateDashboardMetrics } from "./mockDashboardMetrics.js";
 
-const STORAGE_KEY_CASES = "resolve_hub_mock_cases_v2";
-const STORAGE_KEY_HISTORY = "resolve_hub_mock_history_v2";
-const STORAGE_KEY_ROLE = "resolve_hub_active_role_v2";
+const STORAGE_KEY_CASES = "resolve_hub_cases_v3";
+const STORAGE_KEY_HISTORY = "resolve_hub_history_v3";
+const STORAGE_KEY_ROLE = "resolve_hub_active_role_v3";
 
 class MockDataService {
   constructor() {
@@ -19,7 +21,11 @@ class MockDataService {
     this.officers = [...mockOfficers];
     this.institutions = [...mockInstitutions];
     this.activityLog = [];
+    this.cases = [];
+    this.caseHistory = {};
+    this.backendSynced = false;
     this.loadState();
+    this.syncWithBackend();
   }
 
   loadState() {
@@ -48,6 +54,36 @@ class MockDataService {
     this.generateRecentActivity();
   }
 
+  async syncWithBackend() {
+    try {
+      // 1. Fetch live metrics & reference entities
+      const metricsRes = await fetch("/api/dashboard/metrics/");
+      if (metricsRes.ok) {
+        const data = await metricsRes.json();
+        if (data.status === "success") {
+          if (data.bureaus && data.bureaus.length > 0) this.bureaus = data.bureaus;
+          if (data.institutions && data.institutions.length > 0) this.institutions = data.institutions;
+          this.backendMetrics = data;
+        }
+      }
+
+      // 2. Fetch live cases from database
+      const casesRes = await fetch("/api/cases/?page_size=200");
+      if (casesRes.ok) {
+        const cData = await casesRes.json();
+        if (cData.status === "success" && cData.cases && cData.cases.length > 0) {
+          this.cases = cData.cases;
+          this.backendSynced = true;
+          this.saveState();
+          // Dispatch notification to UI
+          window.dispatchEvent(new CustomEvent("resolvehub:backend-synced", { detail: { count: cData.cases.length } }));
+        }
+      }
+    } catch (err) {
+      console.debug("Backend sync notice (using local/fallback state):", err);
+    }
+  }
+
   saveState() {
     try {
       localStorage.setItem(STORAGE_KEY_CASES, JSON.stringify(this.cases));
@@ -65,6 +101,7 @@ class MockDataService {
     this.cases = JSON.parse(JSON.stringify(mockCases));
     this.caseHistory = JSON.parse(JSON.stringify(mockCaseHistory));
     this.generateRecentActivity();
+    this.syncWithBackend();
     return true;
   }
 
@@ -85,15 +122,49 @@ class MockDataService {
 
   generateRecentActivity() {
     this.activityLog = [
-      { timestamp: "2026-10-26 11:20", caseId: "AICTE-2026-REG-0106", officer: "Sh. Vikramaditya Sen", action: "Escalated to Level 3", details: "Emergency Hearing with Director General convened regarding anti-ragging non-compliance." },
-      { timestamp: "2026-10-26 10:15", caseId: "AICTE-2026-REG-0104", officer: "Dr. Priya Sundaram", action: "Investigation Note Added", details: "Aadhaar cross-check verification completed for ghost faculty investigation." },
-      { timestamp: "2026-10-25 16:40", caseId: "AICTE-2026-REG-0102", officer: "Smt. Sunita Rao", action: "Status Updated", details: "Moved to 'Awaiting Institutional Response' following Show Cause Notice." },
-      { timestamp: "2026-10-25 14:10", caseId: "AICTE-2026-REG-0129", officer: "Smt. Sunita Rao", action: "Case Reassigned", details: "Assigned to Institutional Approval Cell for site plan verification." },
-      { timestamp: "2026-10-25 09:30", caseId: "AICTE-2026-REG-0101", officer: "Dr. Ramesh Verma", action: "Priority Upgraded", details: "Upgraded from High to Critical due to repeated fee extortion complaints." }
+      { timestamp: "2026-10-29 11:20", caseId: "AICTE-2026-REG-0106", officer: "Sh. Vikramaditya Sen", action: "Escalated to Level 3", details: "Emergency Hearing with Director General convened regarding anti-ragging non-compliance." },
+      { timestamp: "2026-10-29 10:15", caseId: "AICTE-2026-REG-0104", officer: "Dr. Priya Sundaram", action: "Investigation Note Added", details: "Aadhaar cross-check verification completed for ghost faculty investigation." },
+      { timestamp: "2026-10-28 16:40", caseId: "AICTE-2026-REG-0102", officer: "Smt. Sunita Rao", action: "Status Updated", details: "Moved to 'Awaiting Institutional Response' following Show Cause Notice." },
+      { timestamp: "2026-10-28 14:10", caseId: "AICTE-2026-REG-0129", officer: "Smt. Sunita Rao", action: "Case Reassigned", details: "Assigned to Institutional Approval Cell for site plan verification." },
+      { timestamp: "2026-10-27 09:30", caseId: "AICTE-2026-REG-0101", officer: "Dr. Ramesh Verma", action: "Priority Upgraded", details: "Upgraded from High to Critical due to repeated fee extortion complaints." }
     ];
   }
 
   getDashboardMetrics() {
+    if (this.backendMetrics && this.backendMetrics.kpis) {
+      const bm = this.backendMetrics;
+      const kpis = {
+        totalCases: bm.kpis.total_cases,
+        openCases: bm.kpis.open_cases,
+        overdueCases: bm.kpis.sla_breached,
+        resolvedCases: bm.kpis.resolved_cases,
+        escalatedCases: (bm.kpis.escalated_l1 || 0) + (bm.kpis.escalated_l2 || 0) + (bm.kpis.escalated_l3 || 0),
+        urgentReviews: bm.kpis.urgent_review_count || 0,
+        legalFlags: bm.kpis.legal_flag_count || 0,
+        pendingHumanReviews: bm.kpis.pending_human_review_count || 0,
+      };
+      return {
+        ...kpis,
+        kpis: kpis,
+        statusCounts: bm.charts.statusCounts || {},
+        priorityCounts: bm.charts.priorityCounts || {},
+        bureauWorkload: bm.charts.bureauWorkload || {},
+        monthlyTrends: bm.charts.monthlyTrends && bm.charts.monthlyTrends.labels ? bm.charts.monthlyTrends : {
+          labels: ["May 2026", "Jun 2026", "Jul 2026", "Aug 2026", "Sep 2026", "Oct 2026"],
+          intake: [6, 8, 11, 14, 18, 23],
+          resolved: [5, 7, 9, 12, 10, 8]
+        },
+        institutionCategories: bm.charts.institutionCategories && Object.keys(bm.charts.institutionCategories).length > 0 ? bm.charts.institutionCategories : {
+          "Engineering & Technology": 30,
+          "Management": 12,
+          "Pharmacy": 6,
+          "Polytechnic / Diploma": 4,
+          "Architecture": 2
+        },
+        recentAlerts: bm.recent_alerts || [],
+        highAttentionInstitutions: bm.high_attention_institutions || [],
+      };
+    }
     return calculateDashboardMetrics(this.cases, this.institutions, this.bureaus);
   }
 
@@ -107,17 +178,17 @@ class MockDataService {
 
   getInstitutions() {
     return this.institutions.map(inst => {
-      const instCases = this.cases.filter(c => c.institutionId === inst.id);
+      const instCases = this.cases.filter(c => c.institutionId === inst.id || c.aicteId === inst.aicteId);
       const openCount = instCases.filter(c => c.status !== "Resolved" && c.status !== "Closed").length;
-      const overdueCount = instCases.filter(c => c.slaStatus === "Overdue" && c.status !== "Resolved" && c.status !== "Closed").length;
+      const overdueCount = instCases.filter(c => (c.slaStatus === "Overdue" || c.isSlaBreached) && c.status !== "Resolved" && c.status !== "Closed").length;
       const resolvedCount = instCases.filter(c => c.status === "Resolved" || c.status === "Closed").length;
 
       return {
         ...inst,
-        totalCases: instCases.length,
+        totalCases: instCases.length || inst.activeCases || 0,
         openCases: openCount,
         overdueCases: overdueCount,
-        resolvedCases: resolvedCount
+        resolvedCases: resolvedCount,
       };
     });
   }
@@ -125,67 +196,64 @@ class MockDataService {
   getInstitutionById(id) {
     const inst = this.institutions.find(i => i.id === id || i.aicteId === id);
     if (!inst) return null;
-    const instCases = this.cases.filter(c => c.institutionId === inst.id);
+    const instCases = this.cases.filter(c => c.institutionId === inst.id || c.aicteId === inst.aicteId);
     return {
       ...inst,
       cases: instCases,
       openCases: instCases.filter(c => c.status !== "Resolved" && c.status !== "Closed").length,
-      overdueCases: instCases.filter(c => c.slaStatus === "Overdue" && c.status !== "Resolved" && c.status !== "Closed").length,
-      resolvedCases: instCases.filter(c => c.status === "Resolved" || c.status === "Closed").length
+      overdueCases: instCases.filter(c => (c.slaStatus === "Overdue" || c.isSlaBreached) && c.status !== "Resolved" && c.status !== "Closed").length,
+      resolvedCases: instCases.filter(c => c.status === "Resolved" || c.status === "Closed").length,
     };
   }
 
   getCases(filters = {}, search = "", sortBy = "dateReceived", sortOrder = "desc", page = 1, pageSize = 15) {
     let result = [...this.cases];
 
-    // Search query across ID, institution name, AICTE ID, subject, or external ref
+    // Search query
     if (search && search.trim()) {
       const q = search.trim().toLowerCase();
       result = result.filter(c =>
-        c.id.toLowerCase().includes(q) ||
-        c.institutionName.toLowerCase().includes(q) ||
+        (c.id && c.id.toLowerCase().includes(q)) ||
+        (c.institutionName && c.institutionName.toLowerCase().includes(q)) ||
         (c.aicteId && c.aicteId.toLowerCase().includes(q)) ||
-        c.subject.toLowerCase().includes(q) ||
-        (c.externalRef && c.externalRef.toLowerCase().includes(q))
+        (c.subject && c.subject.toLowerCase().includes(q)) ||
+        (c.category && c.category.toLowerCase().includes(q)) ||
+        (c.assignedOfficer && c.assignedOfficer.toLowerCase().includes(q))
       );
     }
 
-    // Role-based scoping simulation
-    if (this.activeRole.includes("Approval")) {
-      // Prioritize or show Approval bureau
-      if (!filters.bureau) {
-        // Can filter or view all with a note
-      }
-    } else if (this.activeRole.includes("PGRC")) {
-      // Grievance bureau
-    }
-
-    // Explicit filters
+    // Filters
     if (filters.bureau && filters.bureau !== "ALL") {
-      result = result.filter(c => c.bureauId === filters.bureau);
+      result = result.filter(c => c.bureauId === filters.bureau || c.bureauName === filters.bureau);
     }
     if (filters.cell && filters.cell !== "ALL") {
-      result = result.filter(c => c.cellId === filters.cell);
+      result = result.filter(c => c.cellId === filters.cell || c.cellName === filters.cell);
     }
     if (filters.category && filters.category !== "ALL") {
       result = result.filter(c => c.category === filters.category);
     }
     if (filters.priority && filters.priority !== "ALL") {
-      result = result.filter(c => c.priority === filters.priority);
+      result = result.filter(c => c.priority.toUpperCase() === filters.priority.toUpperCase());
     }
     if (filters.status && filters.status !== "ALL") {
-      result = result.filter(c => c.status === filters.status);
+      result = result.filter(c => c.status.toLowerCase().includes(filters.status.toLowerCase()));
     }
     if (filters.slaStatus && filters.slaStatus !== "ALL") {
-      result = result.filter(c => c.slaStatus === filters.slaStatus);
+      if (filters.slaStatus === "Overdue" || filters.slaStatus === "BREACHED") {
+        result = result.filter(c => c.isSlaBreached || (c.slaStatus && c.slaStatus.toLowerCase().includes("breached")) || c.slaStatus === "Overdue");
+      } else if (filters.slaStatus === "Approaching" || filters.slaStatus === "AT_RISK") {
+        result = result.filter(c => c.isApproaching || (c.slaStatus && c.slaStatus.toLowerCase().includes("approaching")));
+      } else if (filters.slaStatus === "Resolved") {
+        result = result.filter(c => c.status === "Resolved" || (c.slaStatus && c.slaStatus.toLowerCase().includes("resolved")));
+      } else {
+        result = result.filter(c => c.slaStatus && c.slaStatus.toLowerCase().includes(filters.slaStatus.toLowerCase()));
+      }
+    }
+    if (filters.legalFlag && filters.legalFlag !== "ALL") {
+      result = result.filter(c => (c.legalFlag && c.legalFlag.toUpperCase() === filters.legalFlag.toUpperCase()));
     }
     if (filters.state && filters.state !== "ALL") {
-      const stateInstIds = this.institutions.filter(i => i.state === filters.state).map(i => i.id);
-      result = result.filter(c => stateInstIds.includes(c.institutionId));
-    }
-    if (filters.institutionCategory && filters.institutionCategory !== "ALL") {
-      const catInstIds = this.institutions.filter(i => i.category === filters.institutionCategory).map(i => i.id);
-      result = result.filter(c => catInstIds.includes(c.institutionId));
+      result = result.filter(c => c.institutionState === filters.state || (c.institution && c.institution.state === filters.state));
     }
 
     // Sorting
@@ -214,7 +282,7 @@ class MockDataService {
       totalCount,
       totalPages,
       currentPage: page,
-      pageSize
+      pageSize,
     };
   }
 
@@ -223,140 +291,206 @@ class MockDataService {
     if (!caseItem) return null;
 
     const history = this.caseHistory[id] || { notes: [], timeline: [] };
-    const institution = this.institutions.find(i => i.id === caseItem.institutionId);
+    const institution = this.institutions.find(i => i.id === caseItem.institutionId || i.aicteId === caseItem.aicteId);
 
     return {
       ...caseItem,
       institution,
       notes: history.notes || [],
-      timeline: history.timeline || []
+      timeline: history.timeline || [],
     };
   }
 
-  assignCase(caseId, bureauId, cellId, officerName, assignedBy = "System") {
+  async getBackendCaseDetail(caseId) {
+    try {
+      const res = await fetch(`/api/cases/${encodeURIComponent(caseId)}/`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === "success" && data.case) {
+          return data.case;
+        }
+      }
+    } catch (e) {
+      console.debug("Backend case detail fetch fallback:", e);
+    }
+    return this.getCaseById(caseId);
+  }
+
+  async assignCase(caseId, bureauId, cellId, officerName, assignedBy = "System") {
     const c = this.cases.find(item => item.id === caseId);
-    if (!c) return false;
-
-    const bureau = this.bureaus.find(b => b.id === bureauId);
-    const cell = bureau ? bureau.cells.find(cl => cl.id === cellId) : null;
-
-    c.bureauId = bureauId;
-    c.bureauName = bureau ? bureau.name : c.bureauName;
-    c.cellId = cellId;
-    c.cellName = cell ? cell.name : c.cellName;
-    c.assignedOfficer = officerName;
-    c.lastUpdated = new Date().toISOString().split("T")[0];
-
-    if (c.status === "Awaiting Assignment") {
-      c.status = "Under Preliminary Review";
+    if (c) {
+      c.bureauId = bureauId;
+      c.cellId = cellId;
+      c.assignedOfficer = officerName;
+      c.lastUpdated = new Date().toISOString().split("T")[0];
+      if (c.status === "Awaiting Assignment") c.status = "Under Preliminary Review";
+      this.recordActivity(caseId, assignedBy, "Case Assigned", `Assigned to ${officerName}`);
+      this.saveState();
     }
 
-    this.recordActivity(caseId, assignedBy, "Case Assigned", `Assigned to ${officerName} (${c.cellName})`);
-    this.saveState();
+    try {
+      await fetch(`/api/cases/${encodeURIComponent(caseId)}/action/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "assign_case", officer: officerName }),
+      });
+    } catch (e) {}
     return true;
   }
 
-  updateCaseStatus(caseId, newStatus, remarks, officerName = "Authorized Official") {
+  async updateCaseStatus(caseId, newStatus, remarks, officerName = "Authorized Official") {
     const c = this.cases.find(item => item.id === caseId);
-    if (!c) return false;
-
-    const oldStatus = c.status;
-    c.status = newStatus;
-    c.lastUpdated = new Date().toISOString().split("T")[0];
-
-    if (newStatus === "Resolved") {
-      c.slaStatus = "Resolved Within SLA";
-      c.resolutionSummary = remarks || "Resolution formally accepted and recorded.";
+    if (c) {
+      const oldStatus = c.status;
+      c.status = newStatus;
+      c.lastUpdated = new Date().toISOString().split("T")[0];
+      if (newStatus === "Resolved") {
+        c.slaStatus = "Resolved Within SLA";
+        c.resolutionSummary = remarks || "Resolution formally accepted.";
+      }
+      this.recordActivity(caseId, officerName, "Status Updated", `Changed from '${oldStatus}' to '${newStatus}'. Remarks: ${remarks || "None"}`);
+      this.saveState();
     }
 
-    this.recordActivity(caseId, officerName, "Status Updated", `Changed from '${oldStatus}' to '${newStatus}'. Remarks: ${remarks || "None"}`);
-    this.saveState();
+    try {
+      await fetch(`/api/cases/${encodeURIComponent(caseId)}/action/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_status", status: newStatus, notes: remarks }),
+      });
+    } catch (e) {}
     return true;
   }
 
-  updateCasePriority(caseId, newPriority, remarks, officerName = "Authorized Official") {
+  async updateCasePriority(caseId, newPriority, remarks, officerName = "Authorized Official") {
     const c = this.cases.find(item => item.id === caseId);
-    if (!c) return false;
-
-    const old = c.priority;
-    c.priority = newPriority;
-    c.lastUpdated = new Date().toISOString().split("T")[0];
-
-    this.recordActivity(caseId, officerName, "Priority Changed", `Priority re-evaluated from '${old}' to '${newPriority}'. Reason: ${remarks}`);
-    this.saveState();
-    return true;
-  }
-
-  addInvestigationNote(caseId, noteText, officerName = "Authorized Official") {
-    const c = this.cases.find(item => item.id === caseId);
-    if (!c) return false;
-
-    if (!this.caseHistory[caseId]) {
-      this.caseHistory[caseId] = { notes: [], timeline: [] };
+    if (c) {
+      const old = c.priority;
+      c.priority = newPriority;
+      c.lastUpdated = new Date().toISOString().split("T")[0];
+      this.recordActivity(caseId, officerName, "Priority Changed", `Priority re-evaluated from '${old}' to '${newPriority}'. Reason: ${remarks}`);
+      this.saveState();
     }
 
-    const now = new Date();
-    const dateStr = now.toISOString().replace("T", " ").substring(0, 16);
-
-    const newNote = {
-      id: `NOTE-${Date.now()}`,
-      author: officerName,
-      date: dateStr,
-      content: noteText
-    };
-
-    this.caseHistory[caseId].notes.unshift(newNote);
-    c.lastUpdated = now.toISOString().split("T")[0];
-
-    this.recordActivity(caseId, officerName, "Investigation Note Added", noteText.substring(0, 100) + (noteText.length > 100 ? "..." : ""));
-    this.saveState();
+    try {
+      await fetch(`/api/cases/${encodeURIComponent(caseId)}/action/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_priority", priority: newPriority, reason: remarks }),
+      });
+    } catch (e) {}
     return true;
   }
 
-  escalateCase(caseId, targetLevel, justification, officerName = "Authorized Official") {
+  async addInvestigationNote(caseId, noteText, officerName = "Authorized Official") {
     const c = this.cases.find(item => item.id === caseId);
-    if (!c) return false;
+    if (c) {
+      if (!this.caseHistory[caseId]) this.caseHistory[caseId] = { notes: [], timeline: [] };
+      const now = new Date();
+      const dateStr = now.toISOString().replace("T", " ").substring(0, 16);
+      this.caseHistory[caseId].notes.unshift({ id: `NOTE-${Date.now()}`, author: officerName, date: dateStr, content: noteText });
+      c.lastUpdated = now.toISOString().split("T")[0];
+      this.recordActivity(caseId, officerName, "Investigation Note Added", noteText.substring(0, 100));
+      this.saveState();
+    }
 
-    c.escalationLevel = targetLevel;
-    c.status = "Escalated";
-    c.lastUpdated = new Date().toISOString().split("T")[0];
-
-    const levelDescriptions = {
-      1: "Level 1: Section Head Priority Review",
-      2: "Level 2: Bureau Head Inter-Departmental Escalation",
-      3: "Level 3: Member Secretary & Director General Alert"
-    };
-
-    this.recordActivity(caseId, officerName, `Case Escalated (L${targetLevel})`, `${levelDescriptions[targetLevel] || "Escalation"}. Justification: ${justification}`);
-    this.saveState();
+    try {
+      await fetch(`/api/cases/${encodeURIComponent(caseId)}/action/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_note", content: noteText }),
+      });
+    } catch (e) {}
     return true;
+  }
+
+  async escalateCase(caseId, targetLevel, justification, officerName = "Authorized Official") {
+    const c = this.cases.find(item => item.id === caseId);
+    if (c) {
+      c.escalationLevel = targetLevel;
+      c.status = "Escalated";
+      c.lastUpdated = new Date().toISOString().split("T")[0];
+      this.recordActivity(caseId, officerName, `Case Escalated (L${targetLevel})`, justification);
+      this.saveState();
+    }
+
+    try {
+      await fetch(`/api/cases/${encodeURIComponent(caseId)}/action/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "escalate_case", level: targetLevel, reason: justification }),
+      });
+    } catch (e) {}
+    return true;
+  }
+
+  async updateRecommendationAction(caseId, recommendationId, title, state, notes = "") {
+    try {
+      await fetch(`/api/cases/${encodeURIComponent(caseId)}/action/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_recommendation",
+          recommendation_id: recommendationId,
+          title: title,
+          state: state,
+          notes: notes,
+        }),
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async updateLegalReview(caseId, flagLevel, status, notes = "", referredAuthority = "") {
+    try {
+      await fetch(`/api/cases/${encodeURIComponent(caseId)}/action/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_legal_review",
+          flag_level: flagLevel,
+          status: status,
+          notes: notes,
+          referred_authority: referredAuthority,
+        }),
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async confirmDuplicate(caseId, targetCaseId, relType, notes = "") {
+    try {
+      await fetch(`/api/cases/${encodeURIComponent(caseId)}/action/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "confirm_duplicate",
+          target_case_id: targetCaseId,
+          relationship_type: relType,
+          notes: notes,
+        }),
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   recordActivity(caseId, officer, action, details) {
     const now = new Date();
     const dateStr = now.toISOString().replace("T", " ").substring(0, 16);
 
-    // Add to global activity log
-    this.activityLog.unshift({
-      timestamp: dateStr,
-      caseId,
-      officer,
-      action,
-      details
-    });
+    this.activityLog.unshift({ timestamp: dateStr, caseId, officer, action, details });
     if (this.activityLog.length > 50) this.activityLog.pop();
 
-    // Add to specific case timeline
     if (!this.caseHistory[caseId]) {
       this.caseHistory[caseId] = { notes: [], timeline: [] };
     }
-
-    this.caseHistory[caseId].timeline.unshift({
-      date: dateStr,
-      title: action,
-      actor: officer,
-      description: details
-    });
+    this.caseHistory[caseId].timeline.unshift({ date: dateStr, title: action, actor: officer, description: details });
   }
 
   getActivityLog() {
@@ -366,19 +500,9 @@ class MockDataService {
   exportCasesCSV(filters = {}, search = "") {
     const { items } = this.getCases(filters, search, "dateReceived", "desc", 1, 1000);
     const headers = [
-      "Case ID",
-      "Institution Name",
-      "AICTE ID",
-      "Category",
-      "Assigned Bureau",
-      "Assigned Cell",
-      "Officer",
-      "Priority",
-      "Status",
-      "Date Received",
-      "Deadline",
-      "SLA Status",
-      "Escalation Level"
+      "Case ID", "Institution Name", "AICTE ID", "Category",
+      "Assigned Bureau", "Assigned Cell", "Officer", "Priority",
+      "Status", "Date Received", "Deadline", "SLA Status", "Escalation Level", "Legal Attention"
     ];
 
     const rows = items.map(c => [
@@ -394,7 +518,8 @@ class MockDataService {
       `"${c.dateReceived}"`,
       `"${c.resolutionDeadline}"`,
       `"${c.slaStatus}"`,
-      `"L${c.escalationLevel}"`
+      `"L${c.escalationLevel}"`,
+      `"${c.legalFlagLabel || c.legalFlag || 'Routine'}"`,
     ]);
 
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");

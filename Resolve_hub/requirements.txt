@@ -5,6 +5,7 @@ scikit-learn>=1.4
 supabase>=2.0
 whitenoise>=6.6
 gunicorn>=22.0
+google-genai>=2.0.0
 # Optional - only needed if you enable SMS OTP (TWILIO_* in .env).
 # Harmless to install either way; otp.py degrades gracefully if it's absent.
 twilio>=9.0

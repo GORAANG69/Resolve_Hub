@@ -67,8 +67,16 @@ def complaint_list(request):
 @director_required
 def complaint_detail(request, pk):
     complaint = get_object_or_404(
-        Complaint.objects.select_related("student", "category").prefetch_related(
-            "status_history", "attachments", "spam_analysis"
+        Complaint.objects.select_related(
+            "student", "category", "institution", "cell", "assigned_officer",
+            "ai_intelligence", "legal_review"
+        ).prefetch_related(
+            "status_history",
+            "attachments",
+            "spam_analysis",
+            "ai_intelligence__recommendation_actions",
+            "relationships_from__target_complaint__category",
+            "relationships_to__source_complaint__category",
         ),
         pk=pk,
     )
